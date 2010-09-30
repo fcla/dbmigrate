@@ -15,5 +15,4 @@ class INT_ENTITY
   property :VOL, String, :length => 4
   property :ISSUE, String, :length => 3
   property :TITLE, Text
-
 end
