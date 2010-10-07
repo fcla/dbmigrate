@@ -4,7 +4,7 @@ require 'dm-types'
 D1D2_Event_Map = {
   "I" => "ingest",
   "D" => "disseminate",
-  "WA" => "withdraw",
+  "WO" => "withdraw",
   "FC" => "fixitycheck",
   "N" => "normalize",
   "M" => "migrate",

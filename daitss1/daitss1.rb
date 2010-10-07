@@ -6,6 +6,8 @@ require 'daitss1/INT_ENTITY'
 require 'daitss1/EVENT'
 require 'daitss1/ACCOUNT_PROJECT'
 require 'daitss1/ADMIN'
+require 'daitss1/ACCOUNT'
+require 'daitss1/PROJECT'
   	
 DB_URL =  "mysql://root@localhost/daitss"
 

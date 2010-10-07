@@ -23,8 +23,8 @@ class D1Agent
 
   def initialize(id, start_time, end_time)
 	@id = id
-	@start_time = start_time
-	@end_time = end_time
+    @start_time = DateTime.parse(start_time)
+    @end_time = DateTime.parse(end_time)
   end
 end
 
