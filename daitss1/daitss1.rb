@@ -11,10 +11,6 @@ DB_URL =  "mysql://root@localhost/daitss"
 
 module Daitss1
 
-  def Daitss1.setup
-  	DataMapper.setup :daitss1, DB_URL
-  end
-
   def Daitss1.read_all ieid
 	@d1_entity = INT_ENTITY.get(ieid)   
 	@d1_datafiles = DATA_FILE.all(:IEID => @entity)

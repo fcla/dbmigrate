@@ -1,6 +1,15 @@
 require 'dm-core'
 require 'dm-types'
 
+D1D2_Event_Map = {
+  "I" => "ingest",
+  "D" => "disseminate",
+  "WA" => "withdraw",
+  "FC" => "fixitycheck",
+  "N" => "normalize",
+  "M" => "migrate",
+}
+
 class EVENT
   include DataMapper::Resource
 
@@ -15,4 +24,8 @@ class EVENT
   property :OUTCOME, String
   property :NOTE, Text
   property :REL_OID, String, :length => 16
+
+  def toD2EventType
+	return D1D2_Event_Map[@EVENT_TYPE]
+  end
 end
