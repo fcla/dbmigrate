@@ -5,7 +5,7 @@ class ACCOUNT
 
   include DataMapper::Resource
 
-  storage_names[:default] = 'ACCOUNT'
+  storage_names[:daitss1] = 'ACCOUNT'
 
   property :CODE, String, :length => 16, :key => true
   property :NAME, String, :length => 255

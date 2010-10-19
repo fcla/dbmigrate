@@ -4,7 +4,7 @@ require 'dm-types'
 class DATA_FILE
 	include DataMapper::Resource
 	
-	storage_names[:default] = 'DATA_FILE'
+	storage_names[:daitss1] = 'DATA_FILE'
 
 	property :DFID, String, :length => 16, :key => true
 	property :IEID, String, :length => 16

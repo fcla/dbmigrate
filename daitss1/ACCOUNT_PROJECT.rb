@@ -5,7 +5,7 @@ class ACCOUNT_PROJECT
 
   include DataMapper::Resource
 
-  storage_names[:default] = 'ACCOUNT_PROJECT'
+  storage_names[:daitss1] = 'ACCOUNT_PROJECT'
 
   property :ID, Integer, :key => true
   property :ACCOUNT, String, :length => 16

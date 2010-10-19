@@ -4,7 +4,7 @@ require 'dm-types'
 class ADMIN
   include DataMapper::Resource
 
-  storage_names[:default] = 'ADMIN'
+  storage_names[:daitss1] = 'ADMIN'
 
   property :OID, String, :length => 16, :key => true
  

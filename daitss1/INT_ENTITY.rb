@@ -3,7 +3,7 @@ require 'dm-core'
 class INT_ENTITY
   include DataMapper::Resource
 
-  storage_names[:default] = 'INT_ENTITY'
+  storage_names[:daitss1] = 'INT_ENTITY'
 
   property :IEID, String, :key => true
  

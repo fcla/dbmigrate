@@ -13,7 +13,7 @@ D1D2_Event_Map = {
 class EVENT
   include DataMapper::Resource
 
-  storage_names[:default] = 'EVENT'
+  storage_names[:daitss1] = 'EVENT'
 
   property :ID, Integer, :key => true
   property :OID, String, :length => 16
@@ -25,7 +25,13 @@ class EVENT
   property :NOTE, Text
   property :REL_OID, String, :length => 16
 
+  # convert Daitss I event type to DAITSS II event type
   def toD2EventType
-	return D1D2_Event_Map[@EVENT_TYPE]
+    # convert Reingest event to dissemination event
+	if @EVENT_TYPE.eql?("I") && @EVENT_PROCEDURE.include?("SIP re-ingest")
+	   return "disseminate"
+	else
+	   return D1D2_Event_Map[@EVENT_TYPE]
+	end
   end
 end

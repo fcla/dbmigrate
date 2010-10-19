@@ -5,7 +5,7 @@ class PROJECT
 
   include DataMapper::Resource
 
-  storage_names[:default] = 'PROJECT'
+  storage_names[:daitss1] = 'PROJECT'
 
   property :CODE, String, :length => 32, :key => true
   property :DESCRIPTION, String, :length => 255
