@@ -25,7 +25,7 @@ class DbMigrate
   end
 
   # migrate all account, project records
-  def migrate_all_accounts
+  def migrate_accounts
     d1_accounts = DataMapper.repository(:daitss1) { ACCOUNT.all }
 	d1_accounts.each do |act|
 	  d2_act = DataMapper.repository(:default) {Account.new(:id => act.CODE, :description => act.NAME + " - " + act.DESCRIPTION) }
@@ -49,8 +49,20 @@ class DbMigrate
 	
   end
 
+  # migrate all daitss I packages to daitss II.
+  def migrate_all
+	d1_accounts = DataMapper.repository(:daitss1) { ACCOUNT.all }
+	d1_accounts.each do |act|
+	  act_prjs = DataMapper.repository(:daitss1) { ACCOUNT_PROJECT.all(:ACCOUNT => act.CODE) }
+	  
+	  act_prjs.each do |act_prj|
+		migrate_account_project(act.CODE, act_prj.PROJECT)
+	  end
+	end
+  end
+
   # migrate all packages under account, project
-  def migrate_all(account, project)
+  def migrate_account_project(account, project)
 	act = DataMapper.repository(:default) { Account.get(account) }
 	prj = DataMapper.repository(:default) { act.projects.first :id => project }
 	
@@ -60,23 +72,22 @@ class DbMigrate
 		admins = ADMIN.all(:ACCOUNT_PROJECT => act_prj.ID, :OID.like => "E%")
 	    admins.each { |admin| ieids << admin.OID }
     end
-    puts prj.inspect
-    puts ieids.inspect
+
 	ieids.each do |ieid| 
 	  puts ieid
-	  migrate(prj, ieid) 
+	  migrate_ieid(prj, ieid) 
 	end
   end
 
   # migrate the package specified by ieid which will be inserted into d2 account, project
-  def migrate_by_account_project(account, project, ieid)
+  def migrate_ieid_in_account_project(account, project, ieid)
     act = DataMapper.repository(:default) { Account.get(account) }
     prj = act.projects.first :id => project
-    migrate prj, ieid
+	migrate_ieid(prj, ieid)
   end
 
   # migrate the package specified by ieid which will be inserted into d2 project (belonging to an account)
-  def migrate(project, ieid)
+  def migrate_ieid(project, ieid)
 	DataMapper.repository(:daitss1) do
 		@d1_entity = INT_ENTITY.get(ieid)   
 		@d1_datafiles = DATA_FILE.all(:IEID => @d1_entity.IEID, :ORIGIN => 'DEPOSITOR')
@@ -131,7 +142,11 @@ class DbMigrate
         package.sip.size_in_bytes = total_size
 
 	    package.intentity = d2_entity
-	    raise "error saving package records #{package.inspect}" unless package.save
+	  	puts "#{package.errors.to_a} error encountered while saving #{package.inspect} " unless package.valid?
+	  	puts "#{package.sip.errors.to_a} error encountered while saving #{package.inspect} " unless package.sip.valid?
+	  	puts "#{package.intentity.errors.to_a} error encountered while saving #{package.inspect} " unless package.intentity.valid?
+    
+	    raise "error saving package records #{package.inspect} #{package.errors.to_a}" unless package.save
 	    raise "cannot save aip" unless d2_entity.save
         d2_events.each {|e| raise "error saving event records #{e.inspect}" unless e.save }
 	  end
