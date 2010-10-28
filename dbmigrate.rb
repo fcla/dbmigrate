@@ -6,8 +6,8 @@ class DbMigrate
   include Daitss
 
   def setup
-	DataMapper.setup(:daitss1, "mysql://root@localhost/daitss")
-	d2_adapter = DataMapper.setup(:default, "postgres://daitss:topdrawer@localhost/daitss2")
+	DataMapper.setup(:daitss1, "mysql://daitss:topdrawer@localhost/daitss")
+	d2_adapter = DataMapper.setup(:default, "postgres://daitss2@localhost/daitss_db")
 	d2_adapter.resource_naming_convention = DataMapper::NamingConventions::Resource::UnderscoredAndPluralizedWithoutModule
     @d1agent = D1Agents.new
     @d1_stud_descriptor = XML::Document.file('daitss1.xml').to_s
@@ -161,7 +161,7 @@ class DbMigrate
 	      raise "there is no record for this package in the DAITSS 1 COPY table, the package is not migrated"
 	    end
 	  else # the package has not been withdrawn and there is a COPY record
-      	copy = Copy.new(:aip => aip, :url => "/packages/" + ieid + ".000", :sha1 => "", :md5 => d1_copy.MD5)
+      	copy = Copy.new(:aip => aip, :url => "/packages/" + ieid, :sha1 => "", :md5 => d1_copy.MD5)
 	  	aip.copy = copy
 	  end 
 	
