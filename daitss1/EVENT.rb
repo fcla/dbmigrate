@@ -5,6 +5,7 @@ D1D2_Event_Map = {
   "I" => "ingest",
   "D" => "disseminate",
   "WO" => "withdraw",
+  "WA" => "withdraw",
   "FC" => "fixitycheck",
   "N" => "normalize",
   "M" => "migrate",
@@ -33,5 +34,14 @@ class EVENT
 	else
 	   return D1D2_Event_Map[@EVENT_TYPE]
 	end
+  end
+
+  # if this is a withdrawn event
+  def withdrawn?
+    yes = false
+    if @EVENT_TYPE.eql?("WO") || @EVENT_TYPE.eql?("WA")
+      yes = true
+    end
+    return yes
   end
 end
