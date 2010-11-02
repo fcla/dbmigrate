@@ -6,8 +6,10 @@ class DbMigrate
   include Daitss
 
   def setup
-	DataMapper.setup(:daitss1, "mysql://daitss:topdrawer@localhost/daitss")
-	d2_adapter = DataMapper.setup(:default, "postgres://daitss2@localhost/daitss_db")
+#	DataMapper.setup(:daitss1, "mysql://daitss:topdrawer@localhost/daitss")
+#	d2_adapter = DataMapper.setup(:default, "postgres://daitss2@localhost/daitss_db")
+	DataMapper.setup(:daitss1, "mysql://root@localhost/daitss")
+	d2_adapter = DataMapper.setup(:default, "postgres://daitss:topdrawer@localhost/daitss2")
 	d2_adapter.resource_naming_convention = DataMapper::NamingConventions::Resource::UnderscoredAndPluralizedWithoutModule
     @d1agent = D1Agents.new
     @d1_stud_descriptor = XML::Document.file('daitss1.xml').to_s
@@ -77,8 +79,13 @@ class DbMigrate
     end
 
 	ieids.each do |ieid| 
-	  puts ieid
-	  migrate_ieid(prj, ieid) 
+	  begin 
+	    puts ieid
+	    migrate_ieid(prj, ieid) 
+	  rescue => e
+	    puts "errors processing #{ieid}"
+	    puts  e.backtrace.join("\n")
+	  end
 	end
   end
 
@@ -86,7 +93,7 @@ class DbMigrate
   def migrate_ieid_in_account_project(account, project, ieid)
     act = DataMapper.repository(:default) { Account.get(account) }
     prj = act.projects.first :id => project
-	migrate_ieid(prj, ieid)
+    migrate_ieid(prj, ieid)
   end
 
   # migrate the package specified by ieid which will be inserted into d2 project (belonging to an account)
