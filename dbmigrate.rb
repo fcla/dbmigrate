@@ -6,9 +6,9 @@ class DbMigrate
   include Daitss
 
   def setup
-	# DataMapper.setup(:daitss1, "mysql://daitss:topdrawer@localhost/daitss")
-	d1_adapter = DataMapper.setup(:daitss1, "mysql://root@localhost/daitss")
-	d2_adapter = DataMapper.setup(:default, "postgres://daitss:topdrawer@localhost/daitss2")
+	DataMapper.setup(:daitss1, "mysql://daitss:topdrawer@localhost/daitss")
+	#d1_adapter = DataMapper.setup(:daitss1, "mysql://root@localhost/daitss")
+	d2_adapter = DataMapper.setup(:default, "postgres://daitss2@localhost/daitss_db")
 	d2_adapter.resource_naming_convention = DataMapper::NamingConventions::Resource::UnderscoredAndPluralizedWithoutModule
     @d1agent = D1Agents.new
     @d1_stud_descriptor = XML::Document.file('daitss1.xml').to_s
