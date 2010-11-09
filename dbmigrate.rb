@@ -6,8 +6,9 @@ class DbMigrate
   include Daitss
 
   def setup
-	DataMapper.setup(:daitss1, "mysql://daitss:topdrawer@localhost/daitss")
-	d2_adapter = DataMapper.setup(:default, "postgres://daitss2@localhost/daitss_db")
+	# DataMapper.setup(:daitss1, "mysql://daitss:topdrawer@localhost/daitss")
+	d1_adapter = DataMapper.setup(:daitss1, "mysql://root@localhost/daitss")
+	d2_adapter = DataMapper.setup(:default, "postgres://daitss:topdrawer@localhost/daitss2")
 	d2_adapter.resource_naming_convention = DataMapper::NamingConventions::Resource::UnderscoredAndPluralizedWithoutModule
     @d1agent = D1Agents.new
     @d1_stud_descriptor = XML::Document.file('daitss1.xml').to_s
@@ -69,17 +70,22 @@ class DbMigrate
 	act = DataMapper.repository(:default) { Account.get(account) }
 	prj = DataMapper.repository(:default) { act.projects.first :id => project }
 	
-    ieids = Array.new
+  ieids = Array.new
 	DataMapper.repository(:daitss1) do
 		act_prj = ACCOUNT_PROJECT.first(:ACCOUNT => account, :PROJECT => project)   
 		admins = ADMIN.all(:ACCOUNT_PROJECT => act_prj.ID, :OID.like => "E%")
-	    admins.each { |admin| ieids << admin.OID }
-    end
+	  admins.each { |admin| ieids << admin.OID }
+  end
 
 	ieids.each do |ieid| 
 	  begin 
-	    puts ieid
-	    migrate_ieid(prj, ieid) 
+	    package = DataMapper.repository(:default) { Package.get(ieid) }
+	    unless package.nil?
+	      puts "skipping #{ieid}"
+	    else
+	      puts "migrating #{ieid}"
+	      migrate_ieid(prj, ieid) 
+      end
 	  rescue => e
 	    puts "errors processing #{ieid}"
 	    puts  e.backtrace.join("\n")
@@ -177,7 +183,16 @@ class DbMigrate
 		raise "cannot save aip #{aip.inspect} #{aip.errors.to_a}" unless aip.save
         d2_events.each {|e| raise "error saving event records #{e.inspect} #{e.errors.to_a}" unless e.save }
 	  end
+    package = nil
+    aip = nil
+    d1_copy = nil
 	end
+	d1_entity = nil
+  d2_entity = nil
+  d1_datafiles = nil
+  d2_datafiles = nil
+  d1_events = nil
+  d2_events = nil
   end
 
 end
