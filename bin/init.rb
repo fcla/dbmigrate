@@ -3,8 +3,8 @@
 require 'rubygems'
 require 'dbmigrate'
 
-dbm = DbMigrate.new
-dbm.setup
-dbm.create_agents
-dbm.migrate_accounts
+include DbMigrate 
+DbMigrate.setup
+DbMigrate.create_agents
+DbMigrate.migrate_accounts
 

@@ -3,6 +3,6 @@
 require 'rubygems'
 require 'dbmigrate'
 
-dbm = DbMigrate.new
-dbm.setup
-dbm.migrate_all
+include DbMigrate 
+DbMigrate.setup
+DbMigrate.migrate_all

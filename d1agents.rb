@@ -17,12 +17,12 @@ AGENTS = [
 ]
 
 class D1Agent
-  attr_accessor :id
+  attr_accessor :aid
   attr_accessor :start_time
   attr_accessor :end_time
 
-  def initialize(id, start_time, end_time)
-	@id = id
+  def initialize(aid, start_time, end_time)
+	@aid = aid
     @start_time = DateTime.parse(start_time)
     @end_time = DateTime.parse(end_time)
   end
