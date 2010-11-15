@@ -125,7 +125,7 @@ module DbMigrate
       d2_user.account = d2_account
       d2_user.permissions = [:report, :submit, :peek]
       d2_user.permissions << :disseminate if oreq.CAN_REQUEST_DISSEMINATION == "TRUE"
-      d2_user.permissions << :withdraw if oreq.CAN_REQUEST_WITHDRAWAL
+      d2_user.permissions << :withdraw if oreq.CAN_REQUEST_WITHDRAWAL == "TRUE"
 
       puts contact.NAME + " migrated" if DataMapper.repository(:default) { d2_user.save }
     end # of each
