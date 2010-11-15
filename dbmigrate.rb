@@ -9,12 +9,12 @@ module DbMigrate
   include Daitss
 
   def setup
-	DataMapper.setup(:daitss1, "mysql://daitss:topdrawer@localhost/daitss")
-	DataMapper.setup(:package_tracker, "mysql://daitss:topdrawer@localhost/pt")
-	#d1_adapter = DataMapper.setup(:daitss1, "mysql://root@localhost/daitss")
-	d2_adapter = DataMapper.setup(:default, "postgres://daitss2@localhost/daitss_db")
-	d2_adapter.resource_naming_convention = DataMapper::NamingConventions::Resource::UnderscoredAndPluralizedWithoutModule
-# 	DataMapper::Logger.new(STDOUT, 0)
+    DataMapper.setup(:daitss1, "mysql://daitss:topdrawer@localhost/daitss")
+    DataMapper.setup(:package_tracker, "mysql://daitss:topdrawer@localhost/pt")
+    #d1_adapter = DataMapper.setup(:daitss1, "mysql://root@localhost/daitss")
+    d2_adapter = DataMapper.setup(:default, "postgres://daitss2@localhost/daitss_db")
+    d2_adapter.resource_naming_convention = DataMapper::NamingConventions::Resource::UnderscoredAndPluralizedWithoutModule
+    # 	DataMapper::Logger.new(STDOUT, 0)
   end
 
   # create versioned daitss I agents, based on fda system diary
@@ -24,7 +24,7 @@ module DbMigrate
       DataMapper.repository(:default) do 
         agent = PremisAgent.new
         note = String.new("In production from " + a.start_time.to_s + " to " + a.end_time.to_s)
-	    agent.attributes = { :id => a.id, :name => 'daitss I', :type => 'software', :note => note}
+	    agent.attributes = { :id => a.aid, :name => 'daitss I', :type => 'software', :note => note}
 	    raise "cannot save agent #{agent.inspect}" unless agent.save
 	  end
 	end
