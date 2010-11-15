@@ -35,7 +35,6 @@ class D1Agents
     @agents = Array.new
     for i in 0..14
        agent = D1Agent.new(AGENTS[i][0], AGENTS[i][1], AGENTS[i][2])
-       puts agent.inspect
        @agents << agent
     end
   end
