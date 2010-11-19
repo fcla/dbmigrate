@@ -70,10 +70,10 @@ module DbMigrate
 
   # migrate account/project, contacts, pt event and uningested pt packages to d2
   def migrate_ops
-    #migrate_accounts
-    #migrate_contacts
-    #migrate_uningested_from_pt
-    migrate_pt_event
+    migrate_accounts
+    migrate_contacts
+    migrate_uningested_from_pt
+    #migrate_pt_event
   end
 
   # migrate all packages under account, project
@@ -137,7 +137,6 @@ module DbMigrate
         puts "#{contact.NAME}'s account #{d1_account} not in D2 accounts table, skipping" 
         next
       end
-      puts d2_account.inspect
        
       d2_user.first_name = contact.NAME.split(" ", 2)[0]
       d2_user.last_name = contact.NAME.split(" ", 2)[1]
@@ -164,6 +163,11 @@ module DbMigrate
     rejected = DataMapper.repository(:package_tracker) { PT_EVENT.all(:TARGET_PATH.like => "%reject%", :ACTION => "INGESTF") }
 
     rejected.each do |reject|
+      if DataMapper.repository(:package_tracker) { PT_EVENT.first(:PT_UID => reject.PT_UID, :TARGET_PATH.like => "#E2%", :ACTION => "INGESTF") } # skip if package was subsequently ingested
+        puts "skipping #{reject.PT_UID}, it was rejected but subsequently ingested"
+        next
+      end
+
       pt_package = DataMapper.repository(:package_tracker) { PT_PACKAGE.get reject.PT_UID }
       pt_register_event = DataMapper.repository(:package_tracker) { PT_EVENT.first(:PT_UID => reject.PT_UID, :ACTION => "REGISTER") }
       puts "migrating uningested package #{pt_package.PACKAGE_NAME}"
@@ -245,6 +249,29 @@ module DbMigrate
         note_str = notes.join("\n")
 
         DataMapper.repository(:default) { d2_package.log "legacy operations data", { :timestamp => event.TIMESTAMP, :notes => note_str } }
+      end
+    end
+  end
+
+  # migrating D1 fixity events to D2 ops event, assumes package already migrated in d2
+  def migrate_fixity
+    d1_packages = DataMapper.repository(:default) { Package.all(:id.like "E2%") }
+
+    d1_packages.each do |d1_package|
+      # if any bad fixity events, get the whole history
+      # otherwise, just get the latest good one
+      ieid = d1_package.id
+      puts "migrating fixity events for #{ieid}"
+      if DataMapper.repository(:daitss1) { EVENT.first(:OID => ieid, :EVENT_TYPE => "FC", :OUTCOME => "FAIL") }
+        fixity_events = DataMapper.repository(:daitss1) { EVENT.all(:OID => ieid, :EVENT_TYPE => "FC") }
+
+        fixity_events.each do |event|
+          d1_package.log  "legacy fixity event", {:timestamp => event.DATE_TIME, :note => "outcome: #{event.OUTCOME}; note: #{event.NOTE}"}
+        end
+      else
+        event = DataMapper.repository(:daitss1) { EVENT.first(:OID => ieid, :EVENT_TYPE => "FC", :order => [ :DATE_TIME.desc ]) }
+
+        d1_package.log  "legacy fixity event", {:timestamp => event.DATE_TIME, :note => "outcome: #{event.OUTCOME}; note: #{event.NOTE}"}
       end
     end
   end
