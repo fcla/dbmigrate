@@ -9,12 +9,12 @@ module DbMigrate
   include Daitss
 
   def setup
-    DataMapper.setup(:daitss1, "mysql://daitss:topdrawer@localhost/daitss")
-    DataMapper.setup(:package_tracker, "mysql://daitss:topdrawer@localhost/pt")
+    DataMapper.setup(:daitss1, "mysql://root:@localhost/mini_d1")
+    DataMapper.setup(:package_tracker, "mysql://root:@localhost/pt")
     #d1_adapter = DataMapper.setup(:daitss1, "mysql://root@localhost/daitss")
-    d2_adapter = DataMapper.setup(:default, "postgres://daitss2@localhost/daitss_db")
+    d2_adapter = DataMapper.setup(:default, "postgres://manny@localhost/template1")
     d2_adapter.resource_naming_convention = DataMapper::NamingConventions::Resource::UnderscoredAndPluralizedWithoutModule
-    # 	DataMapper::Logger.new(STDOUT, 0)
+    #DataMapper::Logger.new(STDOUT, 0)
   end
 
   # create versioned daitss I agents, based on fda system diary
@@ -68,6 +68,14 @@ module DbMigrate
     end
   end
 
+  # migrate account/project, contacts, pt event and uningested pt packages to d2
+  def migrate_ops
+    #migrate_accounts
+    #migrate_contacts
+    #migrate_uningested_from_pt
+    migrate_pt_event
+  end
+
   # migrate all packages under account, project
   def get_d1_ieids(account, project)
   ieids = Array.new
@@ -110,24 +118,43 @@ module DbMigrate
     d1_contacts.each do |contact|
       oreq = DataMapper.repository(:daitss1) { OUTPUT_REQUEST.first(:CONTACT => contact.ID) }
 
+      unless oreq
+        puts "#{contact.NAME} not in OUTPUT_REQUEST table, skipping" 
+        next
+      end
+
+      d1_account = oreq.ACCOUNT
+      d1_id = oreq.ID
+      can_disseminate = oreq.CAN_REQUEST_DISSEMINATION == "TRUE"
+      can_withdraw = oreq.CAN_REQUEST_WITHDRAWAL == "TRUE"
+
       puts "migrating #{contact.NAME}"
 
       d2_user = DataMapper.repository(:default) { Contact.new }
-      d2_account = DataMapper.repository(:default) { Account.get! oreq.ACCOUNT }
+      d2_account = DataMapper.repository(:default) { Account.get d1_account }
+
+      unless d2_account
+        puts "#{contact.NAME}'s account #{d1_account} not in D2 accounts table, skipping" 
+        next
+      end
+      puts d2_account.inspect
        
       d2_user.first_name = contact.NAME.split(" ", 2)[0]
       d2_user.last_name = contact.NAME.split(" ", 2)[1]
+      d2_user.id = d2_account.id + d1_id.to_s
       d2_user.email = contact.EMAIL
       d2_user.phone = contact.PHONE
-      d2_user.address = ([contact.ADDR_L1, contact.ADDR_L2, contact.ADDR_L3, contact.ADDR_L4, contact.ADDR_L5].find_all { |l| l != "" }).join('\n')
-      d2_user.auth_key = d2_user.first_name
+      d2_user.address = ([contact.ADDR_L1, contact.ADDR_L2, contact.ADDR_L3, contact.ADDR_L4, contact.ADDR_L5].find_all { |l| l != "" }).join(';')
+      d2_user.auth_key = rand(1000000)
       d2_user.description = "Contact migrated from D1"
       d2_user.account = d2_account
       d2_user.permissions = [:report, :submit, :peek]
-      d2_user.permissions << :disseminate if oreq.CAN_REQUEST_DISSEMINATION == "TRUE"
-      d2_user.permissions << :withdraw if oreq.CAN_REQUEST_WITHDRAWAL == "TRUE"
+      d2_user.permissions << :disseminate if can_disseminate
+      d2_user.permissions << :withdraw if can_withdraw
 
-      puts contact.NAME + " migrated" if DataMapper.repository(:default) { d2_user.save }
+      saved = DataMapper.repository(:default) { d2_user.save! }
+
+      saved ? (puts contact.NAME + " migrated") : (puts contact.NAME + " not saved: ") # + d2_user.inspect + " d1: " + contact.inspect)
     end # of each
   end
 
@@ -141,7 +168,12 @@ module DbMigrate
       pt_register_event = DataMapper.repository(:package_tracker) { PT_EVENT.first(:PT_UID => reject.PT_UID, :ACTION => "REGISTER") }
       puts "migrating uningested package #{pt_package.PACKAGE_NAME}"
       d2_account = DataMapper.repository(:default) { Account.get! pt_package.ACCOUNT }
-      d2_project = d2_account.projects.get!(pt_package.PROJECT)
+      d2_project = d2_account.projects.first(:id => pt_package.PROJECT)
+
+      unless d2_project
+        puts "skipping #{pt_package.PACKAGE_NAME}, project #{pt_package.PROJECT} not in database"
+        next
+      end
 
       d2_package = DataMapper.repository(:default) { Package.new }
       d2_package.project = d2_project
@@ -168,6 +200,12 @@ module DbMigrate
     # look for the migration event to find the IEID
     rejected.each do |reject|
       d2_mig_event = DataMapper.repository(:default) { Event.first(:name => "migrated from package tracker", :notes => "uid: #{reject.PT_UID}") }
+
+      unless d2_mig_event
+        puts "skipping #{reject.PT_UID} as it doesn't appear to have been migrated into d2"
+        next
+      end
+
       uid_ieid[reject.PT_UID] = d2_mig_event.package.id
     end
 
@@ -175,7 +213,15 @@ module DbMigrate
     ingested = DataMapper.repository(:package_tracker) { PT_EVENT.all(:TARGET_PATH.like => "#E2%", :ACTION => "INGESTF") }
 
     ingested.each do |ingest|
-      uid_ieid[ingest.PT_UID] = ingest.TARGET_PATH.strip.gsub("#", "")
+
+      ieid = ingest.TARGET_PATH.strip.gsub("#", "")
+
+      unless DataMapper.repository(:default) { Package.get ieid }
+        puts "skipping #{ingest.PT_UID} as it doesn't appear to have been migrated into d2"
+        next
+      end
+
+      uid_ieid[ingest.PT_UID] = ieid
     end
 
     # iterate over every UID => IEID pair, creating an op event for each PT event with given UID
@@ -187,18 +233,18 @@ module DbMigrate
         d2_package = DataMapper.repository(:default) { Package.get!(ieid) }
 
         notes = []
-        notes << "AGENT: " + event.AGENT
-        notes << "ACTION: " + event.ACTION
-        notes << "SOURCE_PATH: " + event.SOURCE_PATH
-        notes << "TARGET_PATH: " + event.TARGET_PATH
-        notes << "SOURCE_COUNT: " + event.SOURCE_COUNT
-        notes << "TARGET_COUNT: " + event.TARGET_COUNT
-        notes << "SOURCE_SIZE: " + event.SOURCE_SIZE
-        notes << "TARGET_SIZE: " + event.TARGET_SIZE
-        notes << "NOTE: " + event.NOTE
+        notes << "AGENT: " + event.AGENT.strip
+        notes << "ACTION: " + event.ACTION.strip
+        notes << "SOURCE_PATH: " + event.SOURCE_PATH.strip
+        notes << "TARGET_PATH: " + event.TARGET_PATH.strip
+        notes << "SOURCE_COUNT: " + event.SOURCE_COUNT.to_s.strip
+        notes << "TARGET_COUNT: " + event.TARGET_COUNT.to_s.strip
+        notes << "SOURCE_SIZE: " + event.SOURCE_SIZE.to_s.strip
+        notes << "TARGET_SIZE: " + event.TARGET_SIZE.to_s.strip
+        notes << "NOTE: " + event.NOTE.strip
         note_str = notes.join("\n")
 
-        d2_package.log "legacy operations data", { :timestamp => event.TIMESTAMP, :notes => notes_str }
+        DataMapper.repository(:default) { d2_package.log "legacy operations data", { :timestamp => event.TIMESTAMP, :notes => note_str } }
       end
     end
   end

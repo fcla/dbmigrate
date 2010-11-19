@@ -5,7 +5,7 @@ class PT_PACKAGE
 
   include DataMapper::Resource
 
-  storage_names[:daitss1] = 'PT_PACKAGE'
+  storage_names[:package_tracker] = 'PT_PACKAGE'
 
   property :PT_UID, Integer, :key => true
   property :PACKAGE_NAME, String, :length => 32

@@ -5,7 +5,7 @@ class PT_EVENT
 
   include DataMapper::Resource
 
-  storage_names[:daitss1] = 'PT_EVENT'
+  storage_names[:package_tracker] = 'PT_EVENT'
 
   property :ID, Integer, :key => true
   property :PT_UID, Integer
