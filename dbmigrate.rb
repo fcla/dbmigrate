@@ -9,20 +9,14 @@ module DbMigrate
   include Daitss
 
   def setup
-<<<<<<< HEAD
-#	d1_adapter = DataMapper.setup(:daitss1, "mysql://daitss:topdrawer@localhost/daitss")
-	d1_adapter = DataMapper.setup(:daitss1, "mysql://root@localhost/daitss")
-	d2_adapter = DataMapper.setup(:default, "postgres://daitss2@localhost/daitss_db")
-	d2_adapter.resource_naming_convention = DataMapper::NamingConventions::Resource::UnderscoredAndPluralizedWithoutModule
-# 	DataMapper::Logger.new(STDOUT, 0)
-=======
+
     DataMapper.setup(:daitss1, "mysql://root:@localhost/mini_d1")
     DataMapper.setup(:package_tracker, "mysql://root:@localhost/pt")
     #d1_adapter = DataMapper.setup(:daitss1, "mysql://root@localhost/daitss")
     d2_adapter = DataMapper.setup(:default, "postgres://manny@localhost/template1")
     d2_adapter.resource_naming_convention = DataMapper::NamingConventions::Resource::UnderscoredAndPluralizedWithoutModule
     #DataMapper::Logger.new(STDOUT, 0)
->>>>>>> 9c42c5efc0e55401823acd00c246f77839cfb242
+
   end
 
   # create versioned daitss I agents, based on fda system diary
