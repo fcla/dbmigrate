@@ -1,0 +1,16 @@
+#!/usr/bin/env ruby
+
+require 'rubygems'
+require 'dbmigrate'
+
+ieid = ARGV.shift or raise "ACCOUNT id required, usage migrate_ieid ACCOUNT PROJECT"
+
+account = ARGV.shift or raise "ACCOUNT id required, usage migrate_all_by_account_project ACCOUNT PROJECT"
+project = ARGV.shift or raise "PROJECT id required, usage migrate_all_by_account_project ACCOUNT PROJECT"
+
+
+include DbMigrate 
+DbMigrate.setup
+ieids = Array.new
+ieids << ieid
+DbMigrate.migrate_ieids(ieids, account, project)

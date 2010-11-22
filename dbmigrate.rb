@@ -9,8 +9,8 @@ module DbMigrate
   include Daitss
 
   def setup
-	d1_adapter = DataMapper.setup(:daitss1, "mysql://daitss:topdrawer@localhost/daitss")
-#	d1_adapter = DataMapper.setup(:daitss1, "mysql://root@localhost/daitss")
+#	d1_adapter = DataMapper.setup(:daitss1, "mysql://daitss:topdrawer@localhost/daitss")
+	d1_adapter = DataMapper.setup(:daitss1, "mysql://root@localhost/daitss")
 	d2_adapter = DataMapper.setup(:default, "postgres://daitss2@localhost/daitss_db")
 	d2_adapter.resource_naming_convention = DataMapper::NamingConventions::Resource::UnderscoredAndPluralizedWithoutModule
 # 	DataMapper::Logger.new(STDOUT, 0)
@@ -84,10 +84,8 @@ module DbMigrate
     ieids.each do |ieid| 
       begin 
         package = DataMapper.repository(:default) { Package.get(ieid) }
-        unless package.nil?
-          puts "skipping #{ieid}"
-        else
-          puts "migrating #{ieid}"
+        if package.nil?
+          puts "#{Time.now} migrating #{ieid}"
           # pid = fork do
             entity = Entity.new(ieid, account, project)
             entity.migrate

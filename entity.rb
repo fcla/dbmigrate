@@ -1,7 +1,7 @@
 require 'daitss1/daitss1'
 require 'daitss/db'
 require 'd1agents'
- 
+
 class Entity
   def initialize(ieid, account, project)
     @ieid = ieid
@@ -54,7 +54,6 @@ class Entity
         # find the associated daitss I agent based on the event time
         d1_agent = @d1agent.find_agent(e.DATE_TIME)
         agent = DataMapper.repository(:default) { PremisAgent.get(d1_agent.aid) }
-        puts agent
         #@agent.premis_events << d2_e
         d2_e.premis_agent = agent
         d2_events << d2_e
