@@ -8,6 +8,11 @@ require 'daitss1/ACCOUNT_PROJECT'
 require 'daitss1/ADMIN'
 require 'daitss1/ACCOUNT'
 require 'daitss1/PROJECT'
+require 'daitss1/ACCOUNT_PROJECT'
+require 'daitss1/CONTACT'
+require 'daitss1/OUTPUT_REQUEST'
+require 'daitss1/PT_EVENT'
+require 'daitss1/PT_PACKAGE'
 require 'daitss1/COPY'
   	
 module Daitss1
