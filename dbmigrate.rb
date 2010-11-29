@@ -255,7 +255,7 @@ module DbMigrate
 
   # migrating D1 fixity events to D2 ops event, assumes package already migrated in d2
   def migrate_fixity
-    d1_packages = DataMapper.repository(:default) { Package.all(:id.like "E2%") }
+    d1_packages = DataMapper.repository(:default) { Package.all(:id.like => "E2%") }
 
     d1_packages.each do |d1_package|
       # if any bad fixity events, get the whole history
