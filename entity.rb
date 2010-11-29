@@ -17,7 +17,7 @@ class Entity
     # migrate int entity data from d1 to d2
     d1_entity = DataMapper.repository(:daitss1) {  INT_ENTITY.get(@ieid)  }
     d2_entity = DataMapper.repository(:default) { Intentity.new }
-    d2_entity.attributes = { :id => d1_entity.IEID, :original_name => d1_entity.PACKAGE_NAME, 
+    d2_entity.attributes = { :id => Daitss.archive.uri_prefix + d1_entity.IEID, :original_name => d1_entity.PACKAGE_NAME, 
       :entity_id => d1_entity.ENTITY_ID, :volume =>  d1_entity.VOL, :issue => d1_entity.ISSUE, 
       :title => d1_entity.TITLE }
 
@@ -43,7 +43,7 @@ class Entity
       d1_events.each do |e|
         d2_e = DataMapper.repository(:default) { IntentityEvent.new }
         d2_e.attributes = { :id => e.ID, :idType => 'URI', :e_type => e.toD2EventType,
-          :datetime => e.DATE_TIME, :event_detail => e.NOTE, :outcome => e.OUTCOME, :relatedObjectId => @ieid }
+          :datetime => e.DATE_TIME, :event_detail => e.NOTE, :outcome => e.OUTCOME, :relatedObjectId => d2_entity.id }
 
         # has the package been withdrawn?
         if e.withdrawn?

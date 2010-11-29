@@ -8,14 +8,18 @@ include Process
 module DbMigrate
   include Daitss
 
-  def setup
+  D1_DB_URL = 'd1-database-url'
+  D1_OPS_DB_URL = 'd1-ops-database-url'
 
-    DataMapper.setup(:daitss1, "mysql://root:@localhost/mini_d1")
-    DataMapper.setup(:package_tracker, "mysql://root:@localhost/pt")
-    #d1_adapter = DataMapper.setup(:daitss1, "mysql://root@localhost/daitss")
-    d2_adapter = DataMapper.setup(:default, "postgres://manny@localhost/template1")
-    d2_adapter.resource_naming_convention = DataMapper::NamingConventions::Resource::UnderscoredAndPluralizedWithoutModule
-    #DataMapper::Logger.new(STDOUT, 0)
+  attr_reader :d1_db_url, :d1_ops_db_url  
+  
+  def setup(yaml)
+    
+    @d1_db_url = yaml[D1_DB_URL]
+    @d1_ops_db_url = yaml[D1_OPS_DB_URL]
+    DataMapper.setup(:daitss1, @d1_db_url)
+    DataMapper.setup(:package_tracker, @d1_ops_db_url)
+   #DataMapper::Logger.new(STDOUT, 0)
 
   end
 
