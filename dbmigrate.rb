@@ -13,10 +13,11 @@ module DbMigrate
 
   attr_reader :d1_db_url, :d1_ops_db_url  
   
-  def setup(yaml)
+  def setup(archive)
     
-    @d1_db_url = yaml[D1_DB_URL]
-    @d1_ops_db_url = yaml[D1_OPS_DB_URL]
+    @d1_db_url = archive.yaml[D1_DB_URL]
+    @d1_ops_db_url = archive.yaml[D1_OPS_DB_URL]
+    @storage_url = archive.storage_url
     DataMapper.setup(:daitss1, @d1_db_url)
     DataMapper.setup(:package_tracker, @d1_ops_db_url)
    #DataMapper::Logger.new(STDOUT, 0)
@@ -102,7 +103,7 @@ module DbMigrate
         if package.nil?
           puts "#{Time.now} migrating #{ieid}"
           # pid = fork do
-            entity = Entity.new(ieid, account, project)
+            entity = Entity.new(ieid, account, project, @storage_url)
             entity.migrate
             entity = nil
           # end

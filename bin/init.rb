@@ -8,7 +8,7 @@ include Daitss
 archive
 
 include DbMigrate 
-DbMigrate.setup(archive.yaml)
+DbMigrate.setup(archive)
 DbMigrate.create_agents
 DbMigrate.migrate_accounts
 

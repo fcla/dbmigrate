@@ -3,12 +3,13 @@ require 'daitss/db'
 require 'd1agents'
 
 class Entity
-  def initialize(ieid, account, project)
+  def initialize(ieid, account, project, storage_url)
     @ieid = ieid
     act = DataMapper.repository(:default) { Account.get(account) }
     @prj = DataMapper.repository(:default) { act.projects.first :id => project }
     @d1agent = D1Agents.new
     @d1_stud_descriptor = XML::Document.file('daitss1.xml').to_s
+    @storage_url = storage_url
   end
 
   # migrate the package specified by ieid which will be inserted into d2 project (belonging to an account)
@@ -82,14 +83,14 @@ class Entity
             raise "there is no record for this package in the DAITSS 1 COPY table, the package is not migrated"
           end
         else # the package has not been withdrawn and there is a COPY record
-          copy = Copy.new(:aip => aip, :url => "/packages/" + @ieid, :sha1 => "", :md5 => d1_copy.MD5)
+          copy = Copy.new(:aip => aip, :url => @storage_url + "/packages/" + @ieid, :sha1 => "", :md5 => d1_copy.MD5)
           aip.copy = copy
         end 
 
         package.transaction do
           raise "error saving package records #{package.inspect} #{package.errors.to_a}" unless package.save
           raise "cannot save intentity #{d1_entity.inspect} #{d1_entity.errors.to_a}" unless d2_entity.save
-          #		raise "cannot save copy #{copy.inspect} #{copy.errors.to_a}" unless copy.save
+          #	raise "cannot save copy #{copy.inspect} #{copy.errors.to_a}" unless copy.save
           raise "cannot save aip #{aip.inspect} #{aip.errors.to_a}" unless aip.save
           d2_events.each {|e| raise "error saving event records #{e.inspect} #{e.errors.to_a}" unless e.save }
         end
