@@ -7,5 +7,5 @@ require "daitss"
 include Daitss
 archive
 include DbMigrate 
-DbMigrate.setup(archive.yaml)
+DbMigrate.setup(archive)
 DbMigrate.migrate_all

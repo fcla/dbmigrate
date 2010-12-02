@@ -13,7 +13,7 @@ project = ARGV.shift or raise "PROJECT id required, usage migrate_ieid IEID ACCO
 
 
 include DbMigrate 
-DbMigrate.setup(archive.yaml)
+DbMigrate.setup(archive)
 ieids = Array.new
 ieids << ieid
 DbMigrate.migrate_ieids(ieids, account, project)
