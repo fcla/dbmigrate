@@ -1,3 +1,5 @@
+require 'singleton'
+
 AGENTS = [
 	['info:fcla/daitss/v1.?.?', '2005-10-01', '2007-08-15' ], 
 	['info:fcla/daitss/v1.2.4', '2007-08-15', '2007-10-31' ],
@@ -29,6 +31,7 @@ class D1Agent
 end
 
 class D1Agents
+  include Singleton
   attr_accessor :agents
 
   def initialize

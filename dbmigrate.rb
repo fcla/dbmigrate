@@ -26,7 +26,7 @@ module DbMigrate
 
   # create versioned daitss I agents, based on fda system diary
   def create_agents
-    d1agent = D1Agents.new
+    d1agent = D1Agents.instance
     d1agent.agents.each do |a|
       DataMapper.repository(:default) do 
         agent = PremisAgent.new
