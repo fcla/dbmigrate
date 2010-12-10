@@ -26,7 +26,7 @@ module DbMigrate
 
   # create versioned daitss I agents, based on fda system diary
   def create_agents
-    d1agent = D1Agents.new
+    d1agent = D1Agents.instance
     d1agent.agents.each do |a|
       DataMapper.repository(:default) do 
         agent = PremisAgent.new
@@ -86,13 +86,9 @@ module DbMigrate
   # migrate all packages under account, project
   def get_d1_ieids(account, project)
   ieids = Array.new
-	DataMapper.repository(:daitss1) do
-		act_prj = ACCOUNT_PROJECT.first(:ACCOUNT => account, :PROJECT => project)   
-		admins = ADMIN.all(:ACCOUNT_PROJECT => act_prj.ID, :OID.like => "E%")
-	  admins.each { |admin| ieids << admin.OID }
-	  admins = nil
-  end
-
+	act_prj = DataMapper.repository(:daitss1) { ACCOUNT_PROJECT.first(:ACCOUNT => account, :PROJECT => project) } 
+	oids = DataMapper.repository(:daitss1).adapter.select("select OID from ADMIN where ACCOUNT_PROJECT = #{act_prj.ID} and OID like 'E%'")
+	oids.each{|oid| ieids << oid}  
   ieids
   end
 
