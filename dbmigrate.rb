@@ -75,14 +75,6 @@ module DbMigrate
     end
   end
 
-  # migrate account/project, contacts, pt event and uningested pt packages to d2
-  def migrate_ops
-    migrate_accounts
-    migrate_contacts
-    migrate_uningested_from_pt
-    #migrate_pt_event
-  end
-
   # migrate all packages under account, project
   def get_d1_ieids(account, project)
   ieids = Array.new

@@ -8,4 +8,4 @@ include Daitss
 archive
 include DbMigrate 
 DbMigrate.setup(archive)
-DbMigrate.migrate_ops
+DbMigrate.migrate_pt_event
