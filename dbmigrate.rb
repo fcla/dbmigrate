@@ -123,8 +123,8 @@ module DbMigrate
 
       puts "migrating #{contact.NAME}"
 
-      d2_user = DataMapper.repository(:default) { Contact.new }
       d2_account = DataMapper.repository(:default) { Account.get d1_account }
+      d2_user = DataMapper.repository(:default) { Contact.first_or_create(:id => d2_account.id + d1_id.to_s) }
 
       unless d2_account
         puts "#{contact.NAME}'s account #{d1_account} not in D2 accounts table, skipping" 
@@ -133,7 +133,6 @@ module DbMigrate
        
       d2_user.first_name = contact.NAME.split(" ", 2)[0]
       d2_user.last_name = contact.NAME.split(" ", 2)[1]
-      d2_user.id = d2_account.id + d1_id.to_s
       d2_user.email = contact.EMAIL
       d2_user.phone = contact.PHONE
       d2_user.address = ([contact.ADDR_L1, contact.ADDR_L2, contact.ADDR_L3, contact.ADDR_L4, contact.ADDR_L5].find_all { |l| l != "" }).join(';')
