@@ -152,16 +152,22 @@ module DbMigrate
   # creates package and sip records for uningested D1 packages in PT
   # creates an op event denoting the migration
   def migrate_uningested_from_pt
-    rejected = DataMapper.repository(:package_tracker) { PT_EVENT.all(:TARGET_PATH.like => "%reject%", :ACTION => "INGESTF") }
+    adapter = DataMapper.repository(:package_tracker).adapter 
+    res = adapter.select("SELECT * FROM PT_EVENT WHERE TARGET_PATH LIKE '%reject%' AND ACTION = 'INGESTF';")
 
-    rejected.each do |reject|
-      if DataMapper.repository(:package_tracker) { PT_EVENT.first(:PT_UID => reject.PT_UID, :TARGET_PATH.like => "#E2%", :ACTION => "INGESTF") } # skip if package was subsequently ingested
-        puts "skipping #{reject.PT_UID}, it was rejected but subsequently ingested"
+    res.each do |reject|
+      if DataMapper.repository(:package_tracker) { PT_EVENT.first(:PT_UID => reject["pt_uid"], :TARGET_PATH.like => "#E2%", :ACTION => "INGESTF") } # skip if package was subsequently ingested
+        puts "skipping #{reject["pt_uid"]}, it was rejected but subsequently ingested"
         next
       end
 
-      pt_package = DataMapper.repository(:package_tracker) { PT_PACKAGE.get reject.PT_UID }
-      pt_register_event = DataMapper.repository(:package_tracker) { PT_EVENT.first(:PT_UID => reject.PT_UID, :ACTION => "REGISTER") }
+      if DataMapper.repository(:default) { Event.first(:notes => "uid: #{reject["pt_uid"]}") }
+        puts "skipping #{reject["pt_uid"]}, it was previously migrated"
+        next
+      end
+
+      pt_package = DataMapper.repository(:package_tracker) { PT_PACKAGE.get reject["pt_uid"]}
+      pt_register_event = DataMapper.repository(:package_tracker) { PT_EVENT.first(:PT_UID => reject["pt_uid"], :ACTION => "REGISTER") }
       puts "migrating uningested package #{pt_package.PACKAGE_NAME}"
       d2_account = DataMapper.repository(:default) { Account.get! pt_package.ACCOUNT }
       d2_project = d2_account.projects.first(:id => pt_package.PROJECT)
@@ -191,42 +197,49 @@ module DbMigrate
     uid_ieid = {}
 
     # first, iterate over rejected PT packages to get a UID, IEID pair
-    rejected = DataMapper.repository(:package_tracker) { PT_EVENT.all(:TARGET_PATH.like => "%reject%", :ACTION => "INGESTF") }
+    adapter = DataMapper.repository(:package_tracker).adapter 
+    rejected = adapter.select("SELECT * FROM PT_EVENT WHERE TARGET_PATH LIKE '%reject%' AND ACTION = 'INGESTF';")
 
     # look for the migration event to find the IEID
     rejected.each do |reject|
-      d2_mig_event = DataMapper.repository(:default) { Event.first(:name => "migrated from package tracker", :notes => "uid: #{reject.PT_UID}") }
+      d2_mig_event = DataMapper.repository(:default) { Event.first(:name => "migrated from package tracker", :notes => "uid: #{reject["pt_uid"]}") }
 
       unless d2_mig_event
-        puts "skipping #{reject.PT_UID} as it doesn't appear to have been migrated into d2"
+        puts "skipping #{reject["pt_uid"]} as it doesn't appear to have been migrated into d2"
         next
       end
 
-      uid_ieid[reject.PT_UID] = d2_mig_event.package.id
+      uid_ieid[reject["pt_uid"]] = d2_mig_event.package.id
     end
 
     # second, iterate over ingested PT packages to get a UID, IEID pair
-    ingested = DataMapper.repository(:package_tracker) { PT_EVENT.all(:TARGET_PATH.like => "#E2%", :ACTION => "INGESTF") }
+    ingested = adapter.select("SELECT * FROM PT_EVENT WHERE TARGET_PATH LIKE '#E2%' AND ACTION = 'INGESTF';")
 
     ingested.each do |ingest|
 
-      ieid = ingest.TARGET_PATH.strip.gsub("#", "")
+      ieid = ingest["target_path"].strip.gsub("#", "")
 
       unless DataMapper.repository(:default) { Package.get ieid }
-        puts "skipping #{ingest.PT_UID} as it doesn't appear to have been migrated into d2"
+        puts "skipping #{ingest["pt_uid"]} as it doesn't appear to have been migrated into d2"
         next
       end
 
-      uid_ieid[ingest.PT_UID] = ieid
+      uid_ieid[ingest["pt_uid"]] = ieid
     end
 
     # iterate over every UID => IEID pair, creating an op event for each PT event with given UID
 
     uid_ieid.each do |uid, ieid| 
+      package = DataMapper.repository(:default) { Package.get!(ieid) }
       events = DataMapper.repository(:package_tracker) { PT_EVENT.all(:PT_UID => uid) }
       events.each do |event|
+        # skip event if already migrated
+        if DataMapper.repository(:package_tracker) { package.events.first(:timestamp => event.TIMESTAMP, :name => "legacy operations data") } 
+          puts "skipping #{event.ACTION} for #{ieid}, it appears to have already been migrated"
+          next
+        end
+
         puts "migrating #{event.ACTION} event for #{ieid}"
-        d2_package = DataMapper.repository(:default) { Package.get!(ieid) }
 
         notes = []
         notes << "AGENT: " + event.AGENT.strip
@@ -240,30 +253,31 @@ module DbMigrate
         notes << "NOTE: " + event.NOTE.strip
         note_str = notes.join("\n")
 
-        DataMapper.repository(:default) { d2_package.log "legacy operations data", { :timestamp => event.TIMESTAMP, :notes => note_str } }
+        DataMapper.repository(:default) { package.log "legacy operations data", { :timestamp => event.TIMESTAMP, :notes => note_str } }
       end
     end
   end
 
   # migrating D1 fixity events to D2 ops event, assumes package already migrated in d2
   def migrate_fixity
-    d1_packages = DataMapper.repository(:default) { Package.all(:id.like => "E2%") }
+    adapter = DataMapper.repository(:package_tracker).adapter 
+    d1_packages = adapter.select("SELECT * FROM packages WHERE id LIKE 'E2%';")
 
     d1_packages.each do |d1_package|
       # if any bad fixity events, get the whole history
       # otherwise, just get the latest good one
-      ieid = d1_package.id
+      ieid = d1_package['id']
       puts "migrating fixity events for #{ieid}"
       if DataMapper.repository(:daitss1) { EVENT.first(:OID => ieid, :EVENT_TYPE => "FC", :OUTCOME => "FAIL") }
         fixity_events = DataMapper.repository(:daitss1) { EVENT.all(:OID => ieid, :EVENT_TYPE => "FC") }
 
         fixity_events.each do |event|
-          d1_package.log  "legacy fixity event", {:timestamp => event.DATE_TIME, :note => "outcome: #{event.OUTCOME}; note: #{event.NOTE}"}
+          Package.get(ieid).log  "legacy fixity event", {:timestamp => event.DATE_TIME, :note => "outcome: #{event.OUTCOME}; note: #{event.NOTE}"}
         end
       else
         event = DataMapper.repository(:daitss1) { EVENT.first(:OID => ieid, :EVENT_TYPE => "FC", :order => [ :DATE_TIME.desc ]) }
 
-        d1_package.log  "legacy fixity event", {:timestamp => event.DATE_TIME, :note => "outcome: #{event.OUTCOME}; note: #{event.NOTE}"}
+        Package.get(ieid).log  "legacy fixity event", {:timestamp => event.DATE_TIME, :note => "outcome: #{event.OUTCOME}; note: #{event.NOTE}"}
       end
     end
   end
