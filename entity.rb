@@ -1,6 +1,7 @@
 require 'daitss1/daitss1'
 require 'daitss/db'
 require 'd1agents'
+require 'erb'
 
 class Entity
   def initialize(ieid, account, project, storage_url)
@@ -15,6 +16,8 @@ class Entity
   # migrate the package specified by ieid which will be inserted into d2 project (belonging to an account)
   def migrate
     withdrawn = false
+    d2_events = Array.new
+    
     # migrate int entity data from d1 to d2
     d1_entity = DataMapper.repository(:daitss1) {  INT_ENTITY.get(@ieid)  }
     d2_entity = DataMapper.repository(:default) { Intentity.new }
@@ -22,25 +25,9 @@ class Entity
       :entity_id => d1_entity.ENTITY_ID, :volume =>  d1_entity.VOL, :issue => d1_entity.ISSUE, 
       :title => d1_entity.TITLE }
 
-    # migrate sip datafile records the from d1 to d2
-    d1_datafiles = DataMapper.repository(:daitss1) { DATA_FILE.all(:IEID => d1_entity.IEID, :ORIGIN => 'DEPOSITOR') }
-    d2_datafiles = Array.new
-    total_size = 0
-    d1_datafiles.each do |df|
-      d2_df = DataMapper.repository(:default) { Datafile.new }
-      is_sip_descriptor = df.ROLE.eql?("DESCRIPTOR_SIP")
-      d2_df.attributes = { :id => df.DFID, :size => df.SIZE, :create_date => df.CREATE_DATE,
-        :origin => df.ORIGIN, :original_path => df.PACKAGE_PATH, :creating_application => df.CREATOR_PROG,
-        :is_sip_descriptor => is_sip_descriptor, :r0 => true, :rn => false, :rc => true }
-      d2_datafiles << d2_df
-      d2_entity.datafiles << d2_df 
-      total_size += d2_df.size
-    end
-
-    # only migrate package level (ingest, dissemination and withdraw) events
+    # migrate package level (ingest, dissemination and withdraw) events
     d1_events = DataMapper.repository(:daitss1) { EVENT.all(:OID => d1_entity.IEID, :EVENT_TYPE => 'I') + 
-      EVENT.all(:OID => d1_entity.IEID, :EVENT_TYPE => 'WO') + EVENT.all(:OID => d1_entity.IEID, :EVENT_TYPE => 'WA') }
-    d2_events = Array.new
+    EVENT.all(:OID => d1_entity.IEID, :EVENT_TYPE => 'WO') + EVENT.all(:OID => d1_entity.IEID, :EVENT_TYPE => 'WA') }
     d1_events.each do |e|
       d2_e = DataMapper.repository(:default) { IntentityEvent.new }
       d2_e.attributes = { :id => e.ID, :idType => 'URI', :e_type => e.toD2EventType,
@@ -54,10 +41,41 @@ class Entity
 
       # find the associated daitss I agent based on the event time
       d1_agent = @d1agent.find_agent(e.DATE_TIME)
-      agent = DataMapper.repository(:default) { PremisAgent.get(d1_agent.aid) }
+      @agent = DataMapper.repository(:default) { PremisAgent.get(d1_agent.aid) }
       #@agent.premis_events << d2_e
-      d2_e.premis_agent = agent
+      d2_e.premis_agent = @agent
       d2_events << d2_e
+    end
+      
+    # migrate sip datafile records the from d1 to d2
+    d1_datafiles = DataMapper.repository(:daitss1) { DATA_FILE.all(:IEID => d1_entity.IEID, :ORIGIN => 'DEPOSITOR') }
+    d2_datafiles = Array.new
+    total_size = 0
+    d1_datafiles.each do |df|
+      d2_df = DataMapper.repository(:default) { Datafile.new }
+      is_sip_descriptor = df.ROLE.eql?("DESCRIPTOR_SIP")
+      d2_df.attributes = { :id => df.DFID, :size => df.SIZE, :create_date => df.CREATE_DATE,
+        :origin => df.ORIGIN, :original_path => df.PACKAGE_PATH, :creating_application => df.CREATOR_PROG,
+        :is_sip_descriptor => is_sip_descriptor, :r0 => true, :rn => false, :rc => true }
+      d2_datafiles << d2_df
+      d2_entity.datafiles << d2_df 
+      total_size += d2_df.size
+      
+      note = nil
+      # record broken links discovered for this datafile during daitss1 processing
+      sql = "SELECT BROKEN_LINKS from DISTRIBUTED where PARENT = '#{df.DFID}'"
+      result = DataMapper.repository(:daitss1).adapter.select(sql)
+      unless result[0].nil? || result[0].empty?
+        @broken_links = result[0].split('|')
+        # dump the xml output to the event note
+        template = ERB.new File.new("views/broken_links.erb").read, nil, "%"
+        note = template.result(binding)
+        d2_e = DataMapper.repository(:default) { DatafileEvent.new }
+        d2_e.attributes = { :id => df.DFID + '/event/broken_links', :idType => 'URI', :e_type => Daitss::BROKEN_LINKS,
+          :datetime => Time.now, :outcome => 'success', :outcome_details => note, :relatedObjectId => d2_df.id }
+        d2_e.premis_agent = @agent # use the last agent found on the package event
+        d2_events << d2_e
+      end
     end
 
     d1_copy = DataMapper.repository(:daitss1) { COPY.first(:IEID => @ieid)  }
@@ -86,7 +104,7 @@ class Entity
         copy = Copy.new(:aip => aip, :url => @storage_url + "/packages/" + @ieid, :sha1 => "", :md5 => d1_copy.MD5)
         aip.copy = copy
       end 
-
+      
       package.transaction do
         raise "error saving package records #{package.inspect} #{package.errors.to_a}" unless package.save
         raise "cannot save intentity #{d1_entity.inspect} #{d1_entity.errors.to_a}" unless d2_entity.save
