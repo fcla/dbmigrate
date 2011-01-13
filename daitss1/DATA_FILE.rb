@@ -9,7 +9,7 @@ class DATA_FILE
 	property :DFID, String, :length => 16, :key => true
 	property :IEID, String, :length => 16
 	property :CREATE_DATE, DateTime
-	property :FILE_COPY_DATE, DateTime
+	property :FILE_COPY_DATE, Time
 	property :DIP_VERSION, String, :length => 16
     property :ORIGIN, String
 	property :ORIG_URI, String, :length => 255

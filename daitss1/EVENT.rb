@@ -11,6 +11,13 @@ D1D2_Event_Map = {
   "M" => "migrate",
 }
 
+D1D2Ops_Event_Map = {
+  "I" => "ingest finished",
+  "D" => "disseminate finished",
+  "WO" => "withdraw finished",
+  "WA" => "withdraw finished",
+}
+
 class EVENT
   include DataMapper::Resource
 
@@ -29,13 +36,22 @@ class EVENT
   # convert Daitss I event type to DAITSS II event type
   def toD2EventType
     # convert Reingest event to dissemination event
-	if @EVENT_TYPE.eql?("I") && @EVENT_PROCEDURE.include?("SIP re-ingest")
-	   return "disseminate"
-	else
-	   return D1D2_Event_Map[@EVENT_TYPE]
-	end
+	  if @EVENT_TYPE.eql?("I") && @EVENT_PROCEDURE.include?("SIP re-ingest")
+	     return "disseminate"
+  	else
+	     return D1D2_Event_Map[@EVENT_TYPE]
+	  end
   end
 
+  # convert Daitss I event type to DAITSS II event type
+  def toD2OpsEventType
+    # convert Reingest event to dissemination event
+	  if @EVENT_TYPE.eql?("I") && @EVENT_PROCEDURE.include?("SIP re-ingest")
+	     return "disseminate"
+  	else
+	     return D1D2Ops_Event_Map[@EVENT_TYPE]
+	  end
+  end
   # if this is a withdrawn event
   def withdrawn?
     yes = false

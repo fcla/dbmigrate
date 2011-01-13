@@ -1,5 +1,5 @@
-require 'daitss1/daitss1'
 require 'daitss/db'
+require 'daitss1/daitss1'
 require 'd1agents'
 require 'entity'
 
@@ -272,12 +272,12 @@ module DbMigrate
         fixity_events = DataMapper.repository(:daitss1) { EVENT.all(:OID => ieid, :EVENT_TYPE => "FC") }
 
         fixity_events.each do |event|
-          Package.get(ieid).log  "legacy fixity event", {:timestamp => event.DATE_TIME, :note => "outcome: #{event.OUTCOME}; note: #{event.NOTE}"}
+          Package.get(ieid).log  "legacy fixity event", {:timestamp => event.DATE_TIME.ctime, :note => "outcome: #{event.OUTCOME}; note: #{event.NOTE}"}
         end
       else
         event = DataMapper.repository(:daitss1) { EVENT.first(:OID => ieid, :EVENT_TYPE => "FC", :order => [ :DATE_TIME.desc ]) }
 
-        Package.get(ieid).log  "legacy fixity event", {:timestamp => event.DATE_TIME, :note => "outcome: #{event.OUTCOME}; note: #{event.NOTE}"}
+        Package.get(ieid).log  "legacy fixity event", {:timestamp => event.DATE_TIME.ctim, :note => "outcome: #{event.OUTCOME}; note: #{event.NOTE}"}
       end
     end
   end

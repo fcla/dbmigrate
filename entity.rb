@@ -11,13 +11,14 @@ class Entity
     @d1agent = D1Agents.instance
     @d1_stud_descriptor = XML::Document.file('daitss1.xml').to_s
     @storage_url = storage_url
+    @d1_op_agent = Program.get("DAITSS1")
   end
 
   # migrate the package specified by ieid which will be inserted into d2 project (belonging to an account)
   def migrate
     withdrawn = false
     d2_events = Array.new
-    
+
     # migrate int entity data from d1 to d2
     d1_entity = DataMapper.repository(:daitss1) {  INT_ENTITY.get(@ieid)  }
     d2_entity = DataMapper.repository(:default) { Intentity.new }
@@ -29,10 +30,12 @@ class Entity
     d1_events = DataMapper.repository(:daitss1) { EVENT.all(:OID => d1_entity.IEID, :EVENT_TYPE => 'I') + 
     EVENT.all(:OID => d1_entity.IEID, :EVENT_TYPE => 'WO') + EVENT.all(:OID => d1_entity.IEID, :EVENT_TYPE => 'WA') }
     d1_events.each do |e|
+      # migrate all d1 package events to d2 premis_events
       d2_e = DataMapper.repository(:default) { IntentityEvent.new }
+      # temporary workaround: d1 event.DATE_TIME is stored as UTC but dm treat it as localtime
+      # thus, we get the canonical datetime to convert the DATE_TIME to UTC .
       d2_e.attributes = { :id => e.ID, :idType => 'URI', :e_type => e.toD2EventType,
-        :datetime => e.DATE_TIME, :event_detail => e.NOTE, :outcome => e.OUTCOME, :relatedObjectId => d2_entity.id }
-
+        :datetime => e.DATE_TIME.ctime, :event_detail => e.NOTE, :outcome => e.OUTCOME, :relatedObjectId => d2_entity.id }
       # has the package been withdrawn?
       if e.withdrawn?
         puts "withdrawn"
@@ -54,7 +57,7 @@ class Entity
     d1_datafiles.each do |df|
       d2_df = DataMapper.repository(:default) { Datafile.new }
       is_sip_descriptor = df.ROLE.eql?("DESCRIPTOR_SIP")
-      d2_df.attributes = { :id => df.DFID, :size => df.SIZE, :create_date => df.CREATE_DATE,
+      d2_df.attributes = { :id => df.DFID, :size => df.SIZE, :create_date => df.CREATE_DATE.ctime,
         :origin => df.ORIGIN, :original_path => df.PACKAGE_PATH, :creating_application => df.CREATOR_PROG,
         :is_sip_descriptor => is_sip_descriptor, :r0 => true, :rn => false, :rc => true }
       d2_datafiles << d2_df
@@ -104,14 +107,19 @@ class Entity
         copy = Copy.new(:aip => aip, :url => @storage_url + "/packages/" + @ieid, :sha1 => "", :md5 => d1_copy.MD5)
         aip.copy = copy
       end 
-      
       package.transaction do
         raise "error saving package records #{package.inspect} #{package.errors.to_a}" unless package.save
         raise "cannot save intentity #{d1_entity.inspect} #{d1_entity.errors.to_a}" unless d2_entity.save
         #	raise "cannot save copy #{copy.inspect} #{copy.errors.to_a}" unless copy.save
         raise "cannot save aip #{aip.inspect} #{aip.errors.to_a}" unless aip.save
         d2_events.each {|e| raise "error saving event records #{e.inspect} #{e.errors.to_a}" unless e.save }
+        # migrate d1 package events to d2 op events
+        d1_events.each do |e|
+            # use the canonical datetime to convert the timezone into UTC .
+            package.log  e.toD2OpsEventType, { :agent => @d1_op_agent, :timestamp => e.DATE_TIME.ctime, :notes =>  e.NOTE}
+        end
       end
+      
       package = nil
       aip = nil
       d1_copy = nil
