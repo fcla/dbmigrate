@@ -47,7 +47,7 @@ class EVENT
   def toD2OpsEventType
     # convert Reingest event to dissemination event
 	  if @EVENT_TYPE.eql?("I") && @EVENT_PROCEDURE.include?("SIP re-ingest")
-	     return "disseminate"
+	     return "disseminate finished"
   	else
 	     return D1D2Ops_Event_Map[@EVENT_TYPE]
 	  end
