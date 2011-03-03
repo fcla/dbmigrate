@@ -14,6 +14,7 @@ require 'daitss1/OUTPUT_REQUEST'
 require 'daitss1/PT_EVENT'
 require 'daitss1/PT_PACKAGE'
 require 'daitss1/COPY'
+require 'daitss1/REJECTS'
   	
 module Daitss1
 

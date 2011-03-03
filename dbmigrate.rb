@@ -10,16 +10,19 @@ module DbMigrate
 
   D1_DB_URL = 'd1-database-url'
   D1_OPS_DB_URL = 'd1-ops-database-url'
+  D1_REJECTS_DB_URL = 'd1-rejects-database-url'
 
-  attr_reader :d1_db_url, :d1_ops_db_url  
+  attr_reader :d1_db_url, :d1_ops_db_url, :d1_rejects_db_url
   
   def setup(archive)
     
     @d1_db_url = archive.yaml[D1_DB_URL]
     @d1_ops_db_url = archive.yaml[D1_OPS_DB_URL]
+    @d1_rejects_db_url = archive.yaml[D1_REJECTS_DB_URL]
     @storage_url = archive.storage_url
     DataMapper.setup(:daitss1, @d1_db_url)
     DataMapper.setup(:package_tracker, @d1_ops_db_url)
+    DataMapper.setup(:rejects, @d1_rejects_db_url)
    #DataMapper::Logger.new(STDOUT, 0)
 
   end
@@ -147,6 +150,51 @@ module DbMigrate
 
       saved ? (puts contact.NAME + " migrated") : (puts contact.NAME + " not saved: ") # + d2_user.inspect + " d1: " + contact.inspect)
     end # of each
+  end
+
+  # creates package/sip record for each reject
+  # creates migrated from rejects db op event
+  # creates rejected op event
+  # skips records if not in PT or DAITSS, as there is no way to determine act/prj
+  # skips records if ACT/PRJ does not exist in DAITSS 2
+  def migrate_rejects
+    rejects = DataMapper.repository(:rejects) { REJECTS.all }
+
+    rejects.each do |r|
+      # check for and retreive PT/D1 metadata
+      if pt = DataMapper.repository(:package_tracker) { PT_PACKAGE.first(:PACKAGE_NAME => r.PACKAGE_NAME) }
+      elsif d1_pkg= DataMapper.repository(:daitss1) { INT_ENTITY.first(:PACKAGE_NAME => r.PACKAGE_NAME) }
+        admin = DataMapper.repository(:daitss1) { ADMIN.first(:OID => d1_pkg.IEID) } 
+        act_prj = DataMapper.repository(:daitss1) { ACCOUNT_PROJECT.get(admin.ACCOUNT_PROJECT) }
+      else 
+        STDERR.puts "No record of #{r.PACKAGE_NAME} in D1 or package tracker, skipping"
+        next
+      end
+
+      # create package/sip record
+      pt ? project_str = pt.PROJECT : project_str = act_prj.PROJECT
+      pt ? account_str = pt.ACCOUNT : account_str = act_prj.ACCOUNT
+
+      project = DataMapper.repository(:default) { Project.get(project_str, account_str) }
+      unless project
+        STDERR.puts "Project record not found for ACT = #{account_str}, PRJ = #{project_str}, for package #{r.PACKAGE_NAME}, skipping"
+        next
+      end
+
+      s = DataMapper.repository(:default) { Sip.new :name => r.PACKAGE_NAME, :size_in_bytes => 0, :number_of_datafiles => 0 }
+      p = DataMapper.repository(:default) { Package.new :sip => s, :project => project }
+      DataMapper.repository(:default) { s.save }
+      DataMapper.repository(:default) { p.save }
+      STDERR.puts "Wrote package record #{p.id} for #{r.PACKAGE_NAME}"
+
+      # write migration op event
+      p.log("migrated from rejects db", :timestamp => Time.now, :notes => "reject record id: #{r.ID}")
+      STDERR.puts "Wrote migrated ops event for #{r.PACKAGE_NAME}"
+
+      # write reject op event
+      p.log("reject", :timestamp => Time.at(r.TIMESTAMP), :notes => "Please view listings for all packages with this name for a complete record all daitss v.1 processing for this package;\nd1 reject reason: #{r.MESSAGE};\nreport recipient: #{r.RECIPIENT}")
+      STDERR.puts "Wrote reject ops event for #{r.PACKAGE_NAME}"
+    end
   end
 
   # creates package and sip records for uningested D1 packages in PT
