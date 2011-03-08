@@ -163,9 +163,14 @@ module DbMigrate
     rejects.each do |r|
       # check for and retreive PT/D1 metadata
       if pt = DataMapper.repository(:package_tracker) { PT_PACKAGE.first(:PACKAGE_NAME => r.PACKAGE_NAME) }
+        e = DataMapper.repository(:package_tracker) { PT_EVENT.first(:PT_UID => pt.PT_UID, :ACTION => "REGISTER") }
+        e ? sip_num_files = e.SOURCE_COUNT : sip_num_files = 0
+        e ? sip_size = e.SOURCE_SIZE : sip_size = 0
       elsif d1_pkg= DataMapper.repository(:daitss1) { INT_ENTITY.first(:PACKAGE_NAME => r.PACKAGE_NAME) }
         admin = DataMapper.repository(:daitss1) { ADMIN.first(:OID => d1_pkg.IEID) } 
         act_prj = DataMapper.repository(:daitss1) { ACCOUNT_PROJECT.get(admin.ACCOUNT_PROJECT) }
+        sip_size = 0
+        sip_num_files = 0
       else 
         STDERR.puts "No record of #{r.PACKAGE_NAME} in D1 or package tracker, skipping"
         next
@@ -181,7 +186,7 @@ module DbMigrate
         next
       end
 
-      s = DataMapper.repository(:default) { Sip.new :name => r.PACKAGE_NAME, :size_in_bytes => 0, :number_of_datafiles => 0 }
+      s = DataMapper.repository(:default) { Sip.new :name => r.PACKAGE_NAME, :size_in_bytes => sip_size, :number_of_datafiles => sip_num_files }
       p = DataMapper.repository(:default) { Package.new :sip => s, :project => project }
       DataMapper.repository(:default) { s.save }
       DataMapper.repository(:default) { p.save }
