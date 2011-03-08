@@ -192,9 +192,23 @@ module DbMigrate
       STDERR.puts "Wrote migrated ops event for #{r.PACKAGE_NAME}"
 
       # write reject op event
-      p.log("reject", :timestamp => Time.at(r.TIMESTAMP), :notes => "Please view listings for all packages with this name for a complete record all daitss v.1 processing for this package;\nd1 reject reason: #{r.MESSAGE};\nreport recipient: #{r.RECIPIENT}")
+      notes = "Please view listings for all packages with this name for a complete record all daitss v.1 processing for this package; daitss v.1 reject reason: #{r.MESSAGE};report recipient: #{r.RECIPIENT}"
+      notes = newlineify notes, 75
+
+      p.log("reject", :timestamp => Time.at(r.TIMESTAMP), :notes => notes )
       STDERR.puts "Wrote reject ops event for #{r.PACKAGE_NAME}"
     end
+  end
+
+  # adds newlines every n chars
+  def newlineify s, n
+    a = n
+    while n < s.length do
+      s = s.insert n, "\n"
+      n += a
+    end
+
+    return s
   end
 
   # creates package and sip records for uningested D1 packages in PT
