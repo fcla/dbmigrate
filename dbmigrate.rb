@@ -200,7 +200,7 @@ module DbMigrate
       notes = "Please view listings for all packages with this name for a complete record all daitss v.1 processing for this package; daitss v.1 reject reason: #{r.MESSAGE};report recipient: #{r.RECIPIENT}"
       notes = newlineify notes, 75
 
-      p.log("reject", :timestamp => Time.at(r.TIMESTAMP), :notes => notes )
+      p.log("daitss v.1 reject", :timestamp => Time.at(r.TIMESTAMP), :notes => notes )
       STDERR.puts "Wrote reject ops event for #{r.PACKAGE_NAME}"
     end
   end
@@ -220,42 +220,53 @@ module DbMigrate
   # creates an op event denoting the migration
   def migrate_uningested_from_pt
     adapter = DataMapper.repository(:package_tracker).adapter 
-    res = adapter.select("SELECT * FROM PT_EVENT WHERE TARGET_PATH LIKE '%reject%' AND ACTION = 'INGESTF';")
+    res = adapter.select("SELECT * FROM PT_PACKAGE;")
 
-    res.each do |reject|
-      if DataMapper.repository(:package_tracker) { PT_EVENT.first(:PT_UID => reject["pt_uid"], :TARGET_PATH.like => "#E2%", :ACTION => "INGESTF") } # skip if package was subsequently ingested
-        puts "skipping #{reject["pt_uid"]}, it was rejected but subsequently ingested"
+    res.each do |ptpkg|
+      unless DataMapper.repository(:package_tracker) { PT_EVENT.first(:PT_UID => ptpkg["pt_uid"], :ACTION => "REGISTER") } # skip if there is no register event
+        puts "skipping #{ptpkg["pt_uid"]}, no register event"
         next
       end
 
-      if DataMapper.repository(:default) { Event.first(:notes => "uid: #{reject["pt_uid"]}") }
-        puts "skipping #{reject["pt_uid"]}, it was previously migrated"
+      if DataMapper.repository(:package_tracker) { PT_EVENT.first(:PT_UID => ptpkg["pt_uid"], :TARGET_PATH.like => "#E2%", :ACTION => "INGESTF") } # skip if package was subsequently ingested
+        puts "skipping #{ptpkg["pt_uid"]}, appears to have been ingested into D1"
         next
       end
 
-      pt_package = DataMapper.repository(:package_tracker) { PT_PACKAGE.get reject["pt_uid"]}
-      pt_register_event = DataMapper.repository(:package_tracker) { PT_EVENT.first(:PT_UID => reject["pt_uid"], :ACTION => "REGISTER") }
-      puts "migrating uningested package #{pt_package.PACKAGE_NAME}"
-      d2_account = DataMapper.repository(:default) { Account.get! pt_package.ACCOUNT }
-      d2_project = d2_account.projects.first(:id => pt_package.PROJECT)
+      if DataMapper.repository(:default) { Event.first(:notes => "uid: #{ptpkg["pt_uid"]}", :name => "migrated from package tracker") }
+        puts "skipping #{ptpkg["pt_uid"]}, it was previously migrated from PT to D2"
+        next
+      end
+
+      d2_account = DataMapper.repository(:default) { Account.get ptpkg["account"] }
+
+      unless d2_account
+        puts "skipping #{ptpkg["package_name"]}, account #{ptpkg["account"]} not in D2"
+        next
+      end
+
+      d2_project = d2_account.projects.first(:id => ptpkg["project"])
 
       unless d2_project
-        puts "skipping #{pt_package.PACKAGE_NAME}, project #{pt_package.PROJECT} not in database"
+        puts "skipping #{ptpkg["package_name"]}, project #{ptpkg["project"]} not in D2"
         next
       end
+
+      pt_register_event = DataMapper.repository(:package_tracker) { PT_EVENT.first(:PT_UID => ptpkg["pt_uid"], :ACTION => "REGISTER") }
+      puts "migrating uningested package #{ptpkg["package_name"]}"
 
       d2_package = DataMapper.repository(:default) { Package.new }
       d2_package.project = d2_project
 
       d2_sip = DataMapper.repository(:default) { Sip.new }
-      d2_sip.name = pt_package.PACKAGE_NAME
+      d2_sip.name = ptpkg["package_name"]
       d2_sip.size_in_bytes = pt_register_event.SOURCE_SIZE
       d2_sip.number_of_datafiles = pt_register_event.SOURCE_COUNT
       
       d2_package.sip = d2_sip
-      d2_package.log 'migrated from package tracker', :notes => "uid: #{pt_package.PT_UID}" 
+      d2_package.log 'migrated from package tracker', :notes => "uid: #{ptpkg["pt_uid"]}" 
 
-      puts pt_package.PACKAGE_NAME + " migrated" if DataMapper.repository(:default) { d2_package.save }
+      puts ptpkg["package_name"] + " migrated" if DataMapper.repository(:default) { d2_package.save }
     end
   end
 
