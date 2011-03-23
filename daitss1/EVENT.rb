@@ -13,7 +13,7 @@ D1D2_Event_Map = {
 
 D1D2Ops_Event_Map = {
   "I" => "ingest finished",
-  "D" => "disseminate finished",
+  "D" => "disseminate requested",
   "WO" => "withdraw finished",
   "WA" => "withdraw finished",
 }

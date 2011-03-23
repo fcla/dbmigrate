@@ -49,7 +49,7 @@ class Entity
       d2_e.premis_agent = @agent
       d2_events << d2_e
     end
-      
+             
     # migrate sip datafile records the from d1 to d2
     d1_datafiles = DataMapper.repository(:daitss1) { DATA_FILE.all(:IEID => d1_entity.IEID, :ORIGIN => 'DEPOSITOR') }
     d2_datafiles = Array.new
@@ -82,6 +82,9 @@ class Entity
     end
 
     d1_copy = DataMapper.repository(:daitss1) { COPY.first(:IEID => @ieid)  }
+
+    # migrate d1 disseminate event to d2 ops
+    d1_events  = d1_events + DataMapper.repository(:daitss1) { EVENT.all(:OID => d1_entity.IEID, :EVENT_TYPE => 'D')}
 
     DataMapper.repository(:default) do
       # create a package record for the ieid
