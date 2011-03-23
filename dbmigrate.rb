@@ -276,7 +276,7 @@ module DbMigrate
 
     # first, iterate over rejected PT packages to get a UID, IEID pair
     adapter = DataMapper.repository(:package_tracker).adapter 
-    rejected = adapter.select("SELECT * FROM PT_EVENT WHERE TARGET_PATH LIKE '%reject%' AND ACTION = 'INGESTF';")
+    rejected = adapter.select("SELECT * FROM PT_PACKAGE")
 
     # look for the migration event to find the IEID
     rejected.each do |reject|
@@ -288,21 +288,6 @@ module DbMigrate
       end
 
       uid_ieid[reject["pt_uid"]] = d2_mig_event.package.id
-    end
-
-    # second, iterate over ingested PT packages to get a UID, IEID pair
-    ingested = adapter.select("SELECT * FROM PT_EVENT WHERE TARGET_PATH LIKE '#E2%' AND ACTION = 'INGESTF';")
-
-    ingested.each do |ingest|
-
-      ieid = ingest["target_path"].strip.gsub("#", "")
-
-      unless DataMapper.repository(:default) { Package.get ieid }
-        puts "skipping #{ingest["pt_uid"]} as it doesn't appear to have been migrated into d2"
-        next
-      end
-
-      uid_ieid[ingest["pt_uid"]] = ieid
     end
 
     # iterate over every UID => IEID pair, creating an op event for each PT event with given UID
