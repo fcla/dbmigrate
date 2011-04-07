@@ -296,18 +296,29 @@ module DbMigrate
 
     # first, iterate over rejected PT packages to get a UID, IEID pair
     adapter = DataMapper.repository(:package_tracker).adapter 
-    rejected = adapter.select("SELECT * FROM PT_PACKAGE")
+    packages = adapter.select("SELECT * FROM PT_PACKAGE")
 
     # look for the migration event to find the IEID
-    rejected.each do |reject|
-      d2_mig_event = DataMapper.repository(:default) { Event.first(:name => "migrated from package tracker", :notes => "uid: #{reject["pt_uid"]}") }
+    packages.each do |pkg|
+      d2_mig_event = DataMapper.repository(:default) { Event.first(:name => "migrated from package tracker", :notes => "uid: #{pkg["pt_uid"]}") }
 
-      unless d2_mig_event
-        puts "skipping #{reject["pt_uid"]} as it doesn't appear to have been migrated into d2"
+      if d2_mig_event
+        ieid = d2_mig_event.package.id
+        migrated_package = Package.get(ieid)
+      elsif ingested = DataMapper.repository(:package_tracker) { PT_EVENT.first(:PT_UID => pkg["pt_uid"], :ACTION => "INGESTF", :TARGET_PATH.like => "#E2%") }
+        ieid = ingested.TARGET_PATH.strip.gsub("#", "")
+        ingested_package = Package.get(ieid)
+      else
+        puts "#{pkg["pt_uid"]} was not ingested nor migrated to D2"
         next
       end
 
-      uid_ieid[reject["pt_uid"]] = d2_mig_event.package.id
+      if (!d2_mig_event or !migrated_package) and (!ingested or !ingested_package)
+        puts "skipping #{pkg["pt_uid"]} as it doesn't appear to have been migrated into d2"
+        next
+      end
+
+      uid_ieid[pkg["pt_uid"]] = ieid
     end
 
     # iterate over every UID => IEID pair, creating an op event for each PT event with given UID
