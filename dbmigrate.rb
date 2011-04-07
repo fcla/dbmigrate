@@ -108,6 +108,26 @@ module DbMigrate
     end
   end
 
+  # migrate package event (ingest, disseminate, withdraw, re-ingest) to ops events
+  def migrate_opt_events
+    result = DataMapper.repository(:default).adapter.select("SELECT id from packages")
+    
+    result.each do |p|
+      puts p
+      package =  DataMapper.repository(:default) { Package.first(:id => p)}
+      d1_events = DataMapper.repository(:daitss1) { EVENT.all(:OID => p, :EVENT_TYPE => 'I') + 
+        EVENT.all(:OID => p, :EVENT_TYPE => 'WO') + EVENT.all(:OID => p, :EVENT_TYPE => 'WA') +
+        EVENT.all(:OID => p, :EVENT_TYPE => 'D') }.to_a
+      DataMapper.repository(:default) do
+        d1_events.each do |e|
+          # use the canonical datetime to convert the timezone into UTC .
+          package.log  e.toD2OpsEventType, { :agent => @d1_op_agent, :timestamp => e.DATE_TIME.ctime, :notes =>  e.NOTE}
+        end
+      end
+    end
+    package = nil
+  end
+  
   # migrate D1 contacts to D2 agents, assumes all accounts were previously migrated
   def migrate_contacts
     d1_contacts = DataMapper.repository(:daitss1) { CONTACT.all }

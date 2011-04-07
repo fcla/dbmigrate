@@ -84,8 +84,8 @@ class Entity
     d1_copy = DataMapper.repository(:daitss1) { COPY.first(:IEID => @ieid)  }
 
     # migrate d1 disseminate event to d2 ops
-    d1_events  = d1_events + DataMapper.repository(:daitss1) { EVENT.all(:OID => d1_entity.IEID, :EVENT_TYPE => 'D')}
-
+    d1_opt_events  = d1_events.to_a + DataMapper.repository(:daitss1) { EVENT.all(:OID => d1_entity.IEID, :EVENT_TYPE => 'D')}.to_a
+    
     DataMapper.repository(:default) do
       # create a package record for the ieid
       package = Package.new(:id => @ieid)
@@ -117,9 +117,9 @@ class Entity
         raise "cannot save aip #{aip.inspect} #{aip.errors.to_a}" unless aip.save
         d2_events.each {|e| raise "error saving event records #{e.inspect} #{e.errors.to_a}" unless e.save }
         # migrate d1 package events to d2 op events
-        d1_events.each do |e|
-            # use the canonical datetime to convert the timezone into UTC .
-            package.log  e.toD2OpsEventType, { :agent => @d1_op_agent, :timestamp => e.DATE_TIME.ctime, :notes =>  e.NOTE}
+        d1_opt_events.each do |e|
+          # use the canonical datetime to convert the timezone into UTC .
+          package.log  e.toD2OpsEventType, { :agent => @d1_op_agent, :timestamp => e.DATE_TIME.ctime, :notes =>  e.NOTE}
         end
       end
       
