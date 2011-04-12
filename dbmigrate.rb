@@ -162,9 +162,7 @@ module DbMigrate
       d2_user.auth_key = rand(1000000)
       d2_user.description = "Contact migrated from D1"
       d2_user.account = d2_account
-      d2_user.permissions = [:report, :submit, :peek]
-      d2_user.permissions << :disseminate if can_disseminate
-      d2_user.permissions << :withdraw if can_withdraw
+      d2_user.permissions = [:report, :submit]
 
       saved = DataMapper.repository(:default) { d2_user.save! }
 
@@ -238,9 +236,14 @@ module DbMigrate
 
   # creates package and sip records for uningested D1 packages in PT
   # creates an op event denoting the migration
-  def migrate_uningested_from_pt
-    adapter = DataMapper.repository(:package_tracker).adapter 
-    res = adapter.select("SELECT * FROM PT_PACKAGE;")
+  def migrate_uningested_from_pt account = "", project = ""
+    if account != "" and project != "" 
+      adapter = DataMapper.repository(:package_tracker).adapter 
+      res = adapter.select("SELECT * FROM PT_PACKAGE WHERE ACCOUNT = '#{account}' AND PROJECT = '#{project}';")
+    else
+      adapter = DataMapper.repository(:package_tracker).adapter 
+      res = adapter.select("SELECT * FROM PT_PACKAGE;")
+    end
 
     res.each do |ptpkg|
       unless DataMapper.repository(:package_tracker) { PT_EVENT.first(:PT_UID => ptpkg["pt_uid"], :ACTION => "REGISTER") } # skip if there is no register event
@@ -261,19 +264,19 @@ module DbMigrate
       d2_account = DataMapper.repository(:default) { Account.get ptpkg["account"] }
 
       unless d2_account
-        puts "skipping #{ptpkg["package_name"]}, account #{ptpkg["account"]} not in D2"
+        puts "skipping #{ptpkg["pt_uid"]}, #{ptpkg["package_name"]}, account #{ptpkg["account"]} not in D2"
         next
       end
 
-      d2_project = d2_account.projects.first(:id => ptpkg["project"])
+      d2_project = d2_account.projects.first_or_create(:id => ptpkg["project"])
 
       unless d2_project
-        puts "skipping #{ptpkg["package_name"]}, project #{ptpkg["project"]} not in D2"
+        puts "skipping #{ptpkg["pt_uid"]}, #{ptpkg["package_name"]}, could not create project #{ptpkg["project"]} in D2"
         next
       end
 
       pt_register_event = DataMapper.repository(:package_tracker) { PT_EVENT.first(:PT_UID => ptpkg["pt_uid"], :ACTION => "REGISTER") }
-      puts "migrating uningested package #{ptpkg["package_name"]}"
+      puts "migrating uningested package #{ptpkg["pt_uid"]}, #{ptpkg["package_name"]}"
 
       d2_package = DataMapper.repository(:default) { Package.new }
       d2_package.project = d2_project
@@ -286,17 +289,22 @@ module DbMigrate
       d2_package.sip = d2_sip
       d2_package.log 'migrated from package tracker', :notes => "uid: #{ptpkg["pt_uid"]}" 
 
-      puts ptpkg["package_name"] + " migrated" if DataMapper.repository(:default) { d2_package.save }
+      puts ptpkg["pt_uid"].to_s + ", " + ptpkg["package_name"] + " migrated" if DataMapper.repository(:default) { d2_package.save }
     end
   end
 
   # migrates PT event records to D2 ops events table
-  def migrate_pt_event
+  def migrate_pt_event account = "", project = ""
     uid_ieid = {}
 
     # first, iterate over rejected PT packages to get a UID, IEID pair
-    adapter = DataMapper.repository(:package_tracker).adapter 
-    packages = adapter.select("SELECT * FROM PT_PACKAGE")
+    if account != "" and project != ""
+      adapter = DataMapper.repository(:package_tracker).adapter 
+      packages = adapter.select("SELECT * FROM PT_PACKAGE WHERE ACCOUNT = '#{account}' AND PROJECT = '#{project}';")
+    else
+      adapter = DataMapper.repository(:package_tracker).adapter 
+      packages = adapter.select("SELECT * FROM PT_PACKAGE;")
+    end
 
     # look for the migration event to find the IEID
     packages.each do |pkg|
@@ -309,12 +317,12 @@ module DbMigrate
         ieid = ingested.TARGET_PATH.strip.gsub("#", "")
         ingested_package = Package.get(ieid)
       else
-        puts "#{pkg["pt_uid"]} was not ingested nor migrated to D2"
+        puts "#{pkg["pt_uid"]} was not ingested into d1 nor migrated uningested to D2"
         next
       end
 
       if (!d2_mig_event or !migrated_package) and (!ingested or !ingested_package)
-        puts "skipping #{pkg["pt_uid"]} as it doesn't appear to have been migrated into d2"
+        puts "skipping #{pkg["pt_uid"]} it has no d2 package record"
         next
       end
 
@@ -328,12 +336,12 @@ module DbMigrate
       events = DataMapper.repository(:package_tracker) { PT_EVENT.all(:PT_UID => uid) }
       events.each do |event|
         # skip event if already migrated
-        if DataMapper.repository(:package_tracker) { package.events.first(:timestamp => event.TIMESTAMP, :name => "legacy operations data") } 
-          puts "skipping #{event.ACTION} for #{ieid}, it appears to have already been migrated"
+        if DataMapper.repository(:package_tracker) { package.events.first(:timestamp => event.TIMESTAMP, :name => "legacy operations data", :notes.like => "%ACTION: #{event.ACTION}%") } 
+          puts "skipping #{event.ACTION} for #{uid}, #{ieid}, it appears to have already been migrated"
           next
         end
 
-        puts "migrating #{event.ACTION} event for #{ieid}"
+        puts "migrating #{event.ACTION} event for #{uid}, #{ieid}"
 
         notes = []
         notes << "AGENT: " + event.AGENT.strip
@@ -361,7 +369,7 @@ module DbMigrate
       # if any bad fixity events, get the whole history
       # otherwise, just get the latest good one
       ieid = d1_package['id']
-      puts "migrating fixity events for #{ieid}"
+      puts "migrating fixity events for #{uid}, #{ieid}"
       if DataMapper.repository(:daitss1) { EVENT.first(:OID => ieid, :EVENT_TYPE => "FC", :OUTCOME => "FAIL") }
         fixity_events = DataMapper.repository(:daitss1) { EVENT.all(:OID => ieid, :EVENT_TYPE => "FC") }
 

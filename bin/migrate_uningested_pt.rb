@@ -8,4 +8,9 @@ include Daitss
 archive
 include DbMigrate 
 DbMigrate.setup(archive)
-DbMigrate.migrate_uningested_from_pt
+
+if ARGV.empty?
+  DbMigrate.migrate_uningested_from_pt
+elsif ARGV.length == 2
+  DbMigrate.migrate_uningested_from_pt ARGV[0], ARGV[1]
+end
