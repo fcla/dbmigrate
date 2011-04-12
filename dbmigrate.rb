@@ -200,8 +200,21 @@ module DbMigrate
 
       project = DataMapper.repository(:default) { Project.get(project_str, account_str) }
       unless project
-        STDERR.puts "Project record not found for ACT = #{account_str}, PRJ = #{project_str}, for package #{r.PACKAGE_NAME}, skipping"
-        next
+        d2_account = DataMapper.repository(:default) { Account.get(account_str) }
+
+        unless d2_account
+          STDERR.puts "No ACCOUNT #{account_str} for package #{r.PACKAGE_NAME}, skipping"
+          next
+        end
+
+        d2_project = DataMapper.repository(:default) { Project.new :id => project_str }
+        d2_project.account = d2_account
+        
+        STDERR.puts "Creating project #{account_str}, #{project_str} for package #{r.PACKAGE_NAME}"
+        unless d2_project.save 
+          STDERR.puts "Can't save project record: ACT = #{account_str}, PRJ = #{project_str}, for package #{r.PACKAGE_NAME}, skipping"
+          next
+        end
       end
 
       s = DataMapper.repository(:default) { Sip.new :name => r.PACKAGE_NAME, :size_in_bytes => sip_size, :number_of_datafiles => sip_num_files }
@@ -211,14 +224,14 @@ module DbMigrate
       STDERR.puts "Wrote package record #{p.id} for #{r.PACKAGE_NAME}"
 
       # write migration op event
-      p.log("migrated from rejects db", :timestamp => Time.now, :notes => "reject record id: #{r.ID}")
+      DataMapper.repository(:default) { p.log("migrated from rejects db", {:timestamp => Time.now, :notes => "reject record id: #{r.ID}"}) }
       STDERR.puts "Wrote migrated ops event for #{r.PACKAGE_NAME}"
 
       # write reject op event
       notes = "Please view listings for all packages with this name for a complete record all daitss v.1 processing for this package; daitss v.1 reject reason: #{r.MESSAGE};report recipient: #{r.RECIPIENT}"
       notes = newlineify notes, 75
 
-      p.log("daitss v.1 reject", :timestamp => Time.at(r.TIMESTAMP), :notes => notes )
+      DataMapper.repository(:default) { p.log("daitss v.1 reject", {:timestamp => Time.at(r.TIMESTAMP), :notes => notes } ) }
       STDERR.puts "Wrote reject ops event for #{r.PACKAGE_NAME}"
     end
   end
@@ -287,7 +300,7 @@ module DbMigrate
       d2_sip.number_of_datafiles = pt_register_event.SOURCE_COUNT
       
       d2_package.sip = d2_sip
-      d2_package.log 'migrated from package tracker', :notes => "uid: #{ptpkg["pt_uid"]}" 
+      DataMapper.repository(:default) { d2_package.log 'migrated from package tracker', {:notes => "uid: #{ptpkg["pt_uid"]}"} }
 
       puts ptpkg["pt_uid"].to_s + ", " + ptpkg["package_name"] + " migrated" if DataMapper.repository(:default) { d2_package.save }
     end
@@ -374,12 +387,12 @@ module DbMigrate
         fixity_events = DataMapper.repository(:daitss1) { EVENT.all(:OID => ieid, :EVENT_TYPE => "FC") }
 
         fixity_events.each do |event|
-          Package.get(ieid).log  "legacy fixity event", {:timestamp => event.DATE_TIME.ctime, :note => "outcome: #{event.OUTCOME}; note: #{event.NOTE}"}
+          DataMapper.repository(:default) { Package.get(ieid).log  "legacy fixity event", {:timestamp => event.DATE_TIME.ctime, :note => "outcome: #{event.OUTCOME}; note: #{event.NOTE}"} }
         end
       else
         event = DataMapper.repository(:daitss1) { EVENT.first(:OID => ieid, :EVENT_TYPE => "FC", :order => [ :DATE_TIME.desc ]) }
 
-        Package.get(ieid).log  "legacy fixity event", {:timestamp => event.DATE_TIME.ctim, :note => "outcome: #{event.OUTCOME}; note: #{event.NOTE}"}
+        DataMapper.repository(:default) { Package.get(ieid).log  "legacy fixity event", {:timestamp => event.DATE_TIME.ctim, :note => "outcome: #{event.OUTCOME}; note: #{event.NOTE}"} }
       end
     end
   end
