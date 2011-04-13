@@ -269,7 +269,7 @@ module DbMigrate
         next
       end
 
-      if DataMapper.repository(:default) { Event.first(:notes => "uid: #{ptpkg["pt_uid"]}", :name => "migrated from package tracker") }
+      if DataMapper.repository(:default) { Event.first(:notes => "uid: #{ptpkg["pt_uid"]}", :name => "daitss v.1 provenance") }
         puts "skipping #{ptpkg["pt_uid"]}, it was previously migrated from PT to D2"
         next
       end
@@ -300,7 +300,7 @@ module DbMigrate
       d2_sip.number_of_datafiles = pt_register_event.SOURCE_COUNT
       
       d2_package.sip = d2_sip
-      DataMapper.repository(:default) { d2_package.log 'migrated from package tracker', {:notes => "uid: #{ptpkg["pt_uid"]}"} }
+      DataMapper.repository(:default) { d2_package.log 'daitss v.1 provenance', {:notes => "uid: #{ptpkg["pt_uid"]}"} }
 
       puts ptpkg["pt_uid"].to_s + ", " + ptpkg["package_name"] + " migrated" if DataMapper.repository(:default) { d2_package.save }
     end
@@ -321,7 +321,7 @@ module DbMigrate
 
     # look for the migration event to find the IEID
     packages.each do |pkg|
-      d2_mig_event = DataMapper.repository(:default) { Event.first(:name => "migrated from package tracker", :notes => "uid: #{pkg["pt_uid"]}") }
+      d2_mig_event = DataMapper.repository(:default) { Event.first(:name => "daitss v.1 provenance", :notes => "uid: #{pkg["pt_uid"]}") }
 
       if d2_mig_event
         ieid = d2_mig_event.package.id
