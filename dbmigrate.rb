@@ -180,7 +180,10 @@ module DbMigrate
 
     rejects.each do |r|
       # check for and retreive PT/D1 metadata
-      if pt = DataMapper.repository(:package_tracker) { PT_PACKAGE.first(:PACKAGE_NAME => r.PACKAGE_NAME) }
+      if mig_event = DataMapper.repository(:default) { Event.first(:name => "migrated from rejects db", :notes => "reject record id: #{r.ID}")} #skip if already migrated
+        STDERR.puts "skipping #{r.PACKAGE_NAME}, previously migrated as #{mig_event.package_id}"
+        next
+      elsif pt = DataMapper.repository(:package_tracker) { PT_PACKAGE.first(:PACKAGE_NAME => r.PACKAGE_NAME) }
         e = DataMapper.repository(:package_tracker) { PT_EVENT.first(:PT_UID => pt.PT_UID, :ACTION => "REGISTER") }
         e ? sip_num_files = e.SOURCE_COUNT : sip_num_files = 0
         e ? sip_size = e.SOURCE_SIZE : sip_size = 0
