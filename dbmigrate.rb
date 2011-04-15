@@ -175,8 +175,12 @@ module DbMigrate
   # creates rejected op event
   # skips records if not in PT or DAITSS, as there is no way to determine act/prj
   # skips records if ACT/PRJ does not exist in DAITSS 2
-  def migrate_rejects
-    rejects = DataMapper.repository(:rejects) { REJECTS.all }
+  def migrate_rejects rid = ''
+    if rid != ''
+      rejects = DataMapper.repository(:rejects) { REJECTS.all(:ID => rid) }
+    else
+      rejects = DataMapper.repository(:rejects) { REJECTS.all }
+    end
 
     rejects.each do |r|
       # check for and retreive PT/D1 metadata
@@ -252,8 +256,11 @@ module DbMigrate
 
   # creates package and sip records for uningested D1 packages in PT
   # creates an op event denoting the migration
-  def migrate_uningested_from_pt account = "", project = ""
-    if account != "" and project != "" 
+  def migrate_uningested_from_pt uid = "", account = "", project = ""
+    if uid != ""
+      adapter = DataMapper.repository(:package_tracker).adapter 
+      res = adapter.select("SELECT * FROM PT_PACKAGE WHERE PT_UID = '#{uid}';")
+    elsif account != "" and project != "" 
       adapter = DataMapper.repository(:package_tracker).adapter 
       res = adapter.select("SELECT * FROM PT_PACKAGE WHERE ACCOUNT = '#{account}' AND PROJECT = '#{project}';")
     else
@@ -310,11 +317,14 @@ module DbMigrate
   end
 
   # migrates PT event records to D2 ops events table
-  def migrate_pt_event account = "", project = ""
+  def migrate_pt_event uid = "", account = "", project = ""
     uid_ieid = {}
 
     # first, iterate over rejected PT packages to get a UID, IEID pair
-    if account != "" and project != ""
+    if uid != ""
+      adapter = DataMapper.repository(:package_tracker).adapter 
+      packages = adapter.select("SELECT * FROM PT_PACKAGE WHERE PT_UID = '#{uid}';")
+    elsif account != "" and project != ""
       adapter = DataMapper.repository(:package_tracker).adapter 
       packages = adapter.select("SELECT * FROM PT_PACKAGE WHERE ACCOUNT = '#{account}' AND PROJECT = '#{project}';")
     else

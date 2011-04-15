@@ -11,6 +11,8 @@ DbMigrate.setup(archive)
 
 if ARGV.empty?
   DbMigrate.migrate_pt_event
+elsif ARGV.length == 1
+  DbMigrate.migrate_pt_event ARGV[0]
 elsif ARGV.length == 2
-  DbMigrate.migrate_pt_event ARGV[0], ARGV[1]
+  DbMigrate.migrate_pt_event "", ARGV[0], ARGV[1]
 end
